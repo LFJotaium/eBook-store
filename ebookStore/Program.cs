@@ -1,8 +1,20 @@
+using ebookStore.Models;  // For DbContext class
+using Microsoft.EntityFrameworkCore;  // For Entity Framework Core
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+//Add DbContext configuration
+builder.Services.AddDbContext<EbookContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+        .EnableSensitiveDataLogging() // Enable detailed logging
+        .LogTo(Console.WriteLine, LogLevel.Information));   // Uses connection string from appsettings.json
 
+// Ensure NuGet package Npgsql.EntityFrameworkCore.PostgreSQL is installed
+// You can install it using the NuGet Package Manager or by running:
+// dotnet add package Npgsql.EntityFrameworkCore.PostgreSQL 
+    
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
