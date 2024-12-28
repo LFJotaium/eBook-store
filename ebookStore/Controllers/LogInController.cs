@@ -1,4 +1,7 @@
+using System.Security.Claims;
 using ebookStore.Models;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 
@@ -19,11 +22,9 @@ namespace ebookStore.Controllers
         {
             return View();
         }
-
         [HttpPost]
         public IActionResult LogIn(LogInModel userInfo)
         {
-
             if (!ModelState.IsValid)
             {
                 return View();
@@ -34,12 +35,14 @@ namespace ebookStore.Controllers
                 using var connection = new NpgsqlConnection(_connectionString);
                 connection.Open();
                 _logger.LogInformation("Attempting login for Email: {Email}", userInfo.Email);
-                string hashedPassword = userInfo.HashPassword(userInfo.Password);
-                string query = "SELECT COUNT(*) FROM Users WHERE Email = @Email AND hashedPassword = @Password";
 
+                string hashedPassword = userInfo.HashPassword(userInfo.Password);
+                string query = "SELECT COUNT(*) FROM Users WHERE Email = @Email AND password = @Password";
+        
                 using var command = new NpgsqlCommand(query, connection);
                 command.Parameters.AddWithValue("@Email", userInfo.Email);
                 command.Parameters.AddWithValue("@Password", hashedPassword);
+
                 long count = (long)command.ExecuteScalar();
 
                 if (count > 0)
@@ -51,19 +54,16 @@ namespace ebookStore.Controllers
                 {
                     _logger.LogWarning("Login failed for Email: {Email}", userInfo.Email);
                     ModelState.AddModelError("", "Invalid email or password.");
+                    return View(userInfo);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during login for Email: {Email}", userInfo.Email);
                 ModelState.AddModelError("", "An error occurred while processing your request.");
+                return View(userInfo);
             }
-
-            return View();
         }
+
     }
 }
-
-
-
-    

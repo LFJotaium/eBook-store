@@ -2,9 +2,9 @@ namespace ebookStore.Models;
 using Microsoft.EntityFrameworkCore;
 public class EbookContext :DbContext
 {
-        public EbookContext(DbContextOptions<EbookContext> options) : base(options) // when it runs it will look for the connection string in the appsettings.json file
-        {
-        }
+    public EbookContext(DbContextOptions<EbookContext> options) : base(options) // when it runs it will look for the connection string in the appsettings.json file
+    {
+    }
     public DbSet<User> Users { get; set; }
     public DbSet<Book> Books { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)

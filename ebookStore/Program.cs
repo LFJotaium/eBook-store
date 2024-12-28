@@ -1,7 +1,9 @@
-using ebookStore.Models;  // For DbContext class
+using ebookStore.Models;
+using ebookStore.Services; // For DbContext class
 using Microsoft.EntityFrameworkCore;  // For Entity Framework Core
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
