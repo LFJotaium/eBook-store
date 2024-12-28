@@ -13,6 +13,7 @@
     <ItemGroup>
       <_ContentIncludedByDefault Remove="Views\SignUp\Index.cshtml" />
       <_ContentIncludedByDefault Remove="Views\SignUp\Privacy.cshtml" />
+      <_ContentIncludedByDefault Remove="Views\Books\Index.cshtml" />
     </ItemGroup>
 
     <ItemGroup>

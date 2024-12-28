@@ -18,7 +18,6 @@ public class Book
    public decimal PriceBorrowing {get;set;}
    [Required]
    public int YearOfPublish {get;set;}
-   [Required]
    public string Genre {get;set;}
    public string CoverImagePath {get;set;}
 }
