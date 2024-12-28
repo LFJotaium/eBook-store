@@ -1,13 +1,22 @@
-@{
-    ViewData["Title"] = "Home";
-}
+@model List<ebookStore.Models.Book>
 
-<h1>Welcome to eBook Store</h1>
-<p>Explore our collection of eBooks and manage your library.</p>
-
-@if (TempData["Message"] != null)
-{
-    <div class="alert alert-success">
-        @TempData["Message"]
+<section class="book-gallery">
+    <h2>Explore Our Collection</h2>
+    <div class="row">
+        @foreach (var book in Model)
+        {
+            <div class="card">
+                <img src="@book.CoverImagePath" class="card-img-top" alt="@book.Title">
+                <div class="card-body">
+                    <h5 class="card-title">@book.Title</h5>
+                    <p class="card-text">Author: @book.AuthorName</p>
+                    <p class="card-text">Publisher: @book.Publisher</p>
+                    <p class="card-text">Genre: @book.Genre</p>
+                    <p class="card-text">Year: @book.YearOfPublish</p>
+                    <p class="card-text">Buy: $@book.PriceBuy</p>
+                    <p class="card-text">Borrow: $@book.PriceBorrowing</p>
+                </div>
+            </div>
+        }
     </div>
-}
+</section>

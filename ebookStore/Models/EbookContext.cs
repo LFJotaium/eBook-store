@@ -2,6 +2,7 @@ namespace ebookStore.Models;
 using Microsoft.EntityFrameworkCore;
 public class EbookContext :DbContext
 {
+    //psql -U ebookstore_user -d ebookstore to connect with db using Terminal 
     public EbookContext(DbContextOptions<EbookContext> options) : base(options) // when it runs it will look for the connection string in the appsettings.json file
     {
     }

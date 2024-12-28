@@ -3,7 +3,7 @@ using ebookStore.Services; // For DbContext class
 using Microsoft.EntityFrameworkCore;  // For Entity Framework Core
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
@@ -13,9 +13,6 @@ builder.Services.AddDbContext<EbookContext>(options =>
         .EnableSensitiveDataLogging() // Enable detailed logging
         .LogTo(Console.WriteLine, LogLevel.Information));   // Uses connection string from appsettings.json
 
-// Ensure NuGet package Npgsql.EntityFrameworkCore.PostgreSQL is installed
-// You can install it using the NuGet Package Manager or by running:
-// dotnet add package Npgsql.EntityFrameworkCore.PostgreSQL 
     
 var app = builder.Build();
 
@@ -44,4 +41,8 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "login_route",
     pattern: "{controller=Account} / {action=LogIn}/{id?}");
+app.MapControllerRoute(
+    name: "admin",
+    pattern: "{controller=Admin}/{action=AddBook}/{id?}");
+
 app.Run();

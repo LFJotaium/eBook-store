@@ -1,0 +1,60 @@
+@model ebookStore.Models.Book
+
+<h2>Add a New Book</h2>
+
+<form asp-action="AddBook" method="post" enctype="multipart/form-data">
+    <div>
+        <label>Title:</label>
+        <input asp-for="Title" class="form-control" />
+        <span asp-validation-for="Title" class="text-danger"></span>
+    </div>
+
+    <div>
+        <label>Author Name:</label>
+        <input asp-for="AuthorName" class="form-control" />
+        <span asp-validation-for="AuthorName" class="text-danger"></span>
+    </div>
+
+    <div>
+        <label>Publisher:</label>
+        <input asp-for="Publisher" class="form-control" />
+        <span asp-validation-for="Publisher" class="text-danger"></span>
+    </div>
+
+    <div>
+        <label>Price (Buy):</label>
+        <input asp-for="PriceBuy" class="form-control" />
+        <span asp-validation-for="PriceBuy" class="text-danger"></span>
+    </div>
+
+    <div>
+        <label>Price (Borrow):</label>
+        <input asp-for="PriceBorrowing" class="form-control" />
+        <span asp-validation-for="PriceBorrowing" class="text-danger"></span>
+    </div>
+
+    <div>
+        <label>Year of Publish:</label>
+        <input asp-for="YearOfPublish" class="form-control" />
+        <span asp-validation-for="YearOfPublish" class="text-danger"></span>
+    </div>
+
+    <div>
+        <label>Genre:</label>
+        <input asp-for="Genre" class="form-control" />
+        <span asp-validation-for="Genre" class="text-danger"></span>
+    </div>
+
+    <div>
+        <label>Cover Image Path:</label>
+        <input asp-for="CoverImagePath" class="form-control" />
+        <span asp-validation-for="CoverImagePath" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary mt-3">Add Book</button>
+</form>
+
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-success mt-3">@TempData["Message"]</div>
+}

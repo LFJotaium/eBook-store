@@ -11,7 +11,7 @@ public class Book
    [Required]
    public string AuthorName {get;set;}
    [Required]
-   public string Publshier {get;set;}
+   public string Publisher {get;set;}
    [Required]
    public decimal PriceBuy {get;set;}
    [Required]
