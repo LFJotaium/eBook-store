@@ -44,5 +44,8 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "admin",
     pattern: "{controller=Admin}/{action=AddBook}/{id?}");
+app.MapControllerRoute(
+    name: "ManageBooks",
+    pattern: "{controller=Admin}/{action=ManageBooks}/{id?}");
 
 app.Run();

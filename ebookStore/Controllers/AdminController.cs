@@ -58,5 +58,123 @@ namespace ebookStore.Controllers
                 return View(book);
             }
         }
+
+        // Manage Books 
+        [HttpGet("Admin/ManageBooks")]
+        public IActionResult ManageBooks()
+        {
+            var books = new List<Book>();
+
+            using var connection = new NpgsqlConnection(_connectionString);
+            connection.Open();
+            string query = "SELECT * FROM Books ORDER BY Title";
+            using var command = new NpgsqlCommand(query, connection);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                books.Add(new Book
+                {
+                    ID = reader.GetInt32(0),
+                    Title = reader.GetString(1),
+                    AuthorName = reader.GetString(2),
+                    Publisher = reader.GetString(3),
+                    PriceBuy = reader.GetDecimal(4),
+                    PriceBorrowing = reader.GetDecimal(5),
+                    YearOfPublish = reader.GetInt32(6),
+                    Genre = reader.GetString(7),
+                    CoverImagePath = reader.GetString(8)
+                });
+            }
+
+            return View(books);
+        }
+
+        // Deleting books action
+        [HttpPost("Admin/DeleteBook")]
+        public IActionResult DeleteBook(int bookId)
+        {
+            using var connection = new NpgsqlConnection(_connectionString);
+            connection.Open();
+            string query = "DELETE FROM Books WHERE ID = @ID";
+            using var command = new NpgsqlCommand(query, connection);
+            command.Parameters.AddWithValue("@ID", bookId);
+            command.ExecuteNonQuery();
+
+            TempData["Message"] = "Book deleted successfully!";
+            return RedirectToAction("ManageBooks");
+        }
+
+        // Edit Book - GET
+        [HttpGet("Admin/EditBook/{id}")]
+        public IActionResult EditBook(int id)
+        {
+            Book book;
+            using (var connection = new NpgsqlConnection(_connectionString))
+            {
+                connection.Open();
+                string query = "SELECT * FROM Books WHERE ID = @ID";
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@ID", id);
+                using var reader = command.ExecuteReader();
+                if (reader.Read())
+                {
+                    book = new Book
+                    {
+                        ID = reader.GetInt32(0),
+                        Title = reader.GetString(1),
+                        AuthorName = reader.GetString(2),
+                        Publisher = reader.GetString(3),
+                        PriceBuy = reader.GetDecimal(4),
+                        PriceBorrowing = reader.GetDecimal(5),
+                        YearOfPublish = reader.GetInt32(6),
+                        Genre = reader.GetString(7),
+                        CoverImagePath = reader.GetString(8)
+                    };
+                }
+                else
+                {
+                    return NotFound();
+                }
+            }
+
+            return View(book);
+        }
+
+        // Edit Book - POST
+        [HttpPost("Admin/EditBook")]
+        public IActionResult EditBook(Book book)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(book);
+            }
+
+            using (var connection = new NpgsqlConnection(_connectionString))
+            {
+                connection.Open();
+                string query = @"
+                UPDATE Books
+                SET Title = @Title, AuthorName = @AuthorName, Publisher = @Publisher, 
+                    PriceBuy = @PriceBuy, PriceBorrowing = @PriceBorrowing, 
+                    YearOfPublish = @YearOfPublish, Genre = @Genre, CoverImagePath = @CoverImagePath
+                WHERE ID = @ID";
+                using var command = new NpgsqlCommand(query, connection);
+
+                command.Parameters.AddWithValue("@ID", book.ID);
+                command.Parameters.AddWithValue("@Title", book.Title);
+                command.Parameters.AddWithValue("@AuthorName", book.AuthorName);
+                command.Parameters.AddWithValue("@Publisher", book.Publisher);
+                command.Parameters.AddWithValue("@PriceBuy", book.PriceBuy);
+                command.Parameters.AddWithValue("@PriceBorrowing", book.PriceBorrowing);
+                command.Parameters.AddWithValue("@YearOfPublish", book.YearOfPublish);
+                command.Parameters.AddWithValue("@Genre", book.Genre ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@CoverImagePath", book.CoverImagePath ?? (object)DBNull.Value);
+
+                command.ExecuteNonQuery();
+            }
+
+            TempData["Message"] = "Book updated successfully!";
+            return RedirectToAction("ManageBooks");
+        }
     }
 }
