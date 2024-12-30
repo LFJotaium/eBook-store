@@ -8,6 +8,7 @@ public class EbookContext :DbContext
     }
     public DbSet<User> Users { get; set; }
     public DbSet<Book> Books { get; set; }
+    public DbSet<Price> Prices { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -24,6 +25,8 @@ public class EbookContext :DbContext
     {
         optionsBuilder.EnableSensitiveDataLogging(false);
     }
+
+
 
 
 }

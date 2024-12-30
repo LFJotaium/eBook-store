@@ -61,33 +61,58 @@ namespace ebookStore.Controllers
 
         // Manage Books 
         [HttpGet("Admin/ManageBooks")]
-        public IActionResult ManageBooks()
+        public IActionResult ManageBooks(string searchQuery)
         {
             var books = new List<Book>();
 
             using var connection = new NpgsqlConnection(_connectionString);
             connection.Open();
-            string query = "SELECT * FROM Books ORDER BY Title";
+    
+            string query = @"
+        SELECT b.ID, b.Title, b.AuthorName, b.Publisher, 
+               p.CurrentPriceBuy, p.CurrentPriceBorrow, 
+               p.OriginalPriceBuy, p.OriginalPriceBorrow, 
+               p.IsDiscounted, p.DiscountEndDate, 
+               b.YearOfPublish, b.Genre, b.CoverImagePath
+        FROM Books b
+        LEFT JOIN Prices p ON b.ID = p.BookID
+        WHERE b.Title ILIKE @SearchQuery OR b.AuthorName ILIKE @SearchQuery OR b.Publisher ILIKE @SearchQuery
+        ORDER BY b.Title";
+    
             using var command = new NpgsqlCommand(query, connection);
+            command.Parameters.AddWithValue("@SearchQuery", "%" + searchQuery + "%");
+
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
-                books.Add(new Book
+                var book = new Book
                 {
                     ID = reader.GetInt32(0),
                     Title = reader.GetString(1),
                     AuthorName = reader.GetString(2),
                     Publisher = reader.GetString(3),
-                    PriceBuy = reader.GetDecimal(4),
-                    PriceBorrowing = reader.GetDecimal(5),
-                    YearOfPublish = reader.GetInt32(6),
-                    Genre = reader.GetString(7),
-                    CoverImagePath = reader.GetString(8)
-                });
+                    YearOfPublish = reader.GetInt32(10),
+                    Genre = reader.GetString(11),
+                    CoverImagePath = reader.GetString(12),
+                    Price = new Price
+                    {
+                        CurrentPriceBuy = reader.IsDBNull(4) ? 0 : reader.GetDecimal(4),
+                        CurrentPriceBorrow = reader.IsDBNull(5) ? 0 : reader.GetDecimal(5),
+                        OriginalPriceBuy = reader.IsDBNull(6) ? 0 : reader.GetDecimal(6),
+                        OriginalPriceBorrow = reader.IsDBNull(7) ? 0 : reader.GetDecimal(7),
+                        IsDiscounted = reader.IsDBNull(8) ? false : reader.GetBoolean(8),
+                        DiscountEndDate = reader.IsDBNull(9) ? (DateTime?)null : reader.GetDateTime(9)
+                    }
+                };
+                books.Add(book);
             }
 
             return View(books);
         }
+
+
+        
+
 
         // Deleting books action
         [HttpPost("Admin/DeleteBook")]
@@ -176,5 +201,34 @@ namespace ebookStore.Controllers
             TempData["Message"] = "Book updated successfully!";
             return RedirectToAction("ManageBooks");
         }
+        [HttpPost("Admin/SetDiscount")]
+        public IActionResult SetDiscount(int bookId, decimal discountedPriceBuy, decimal discountedPriceBorrow, DateTime discountEndDate)
+        {
+            try
+            {
+                using var connection = new NpgsqlConnection(_connectionString);
+                connection.Open();
+                using var transaction = connection.BeginTransaction();
+
+                var command = new NpgsqlCommand("UPDATE Prices SET IsDiscounted = @IsDiscounted, DiscountEndDate = @DiscountEndDate, CurrentPriceBuy = @DiscountedPriceBuy, CurrentPriceBorrow = @DiscountedPriceBorrow WHERE BookID = @BookID", connection);
+                command.Parameters.AddWithValue("@IsDiscounted", true);
+                command.Parameters.AddWithValue("@DiscountEndDate", discountEndDate);
+                command.Parameters.AddWithValue("@DiscountedPriceBuy", discountedPriceBuy);
+                command.Parameters.AddWithValue("@DiscountedPriceBorrow", discountedPriceBorrow);
+                command.Parameters.AddWithValue("@BookID", bookId);
+
+                command.ExecuteNonQuery();
+                transaction.Commit();
+
+                return RedirectToAction("ManageBooks"); // Redirect back to the Manage Books page
+            }
+            catch (Exception ex)
+            {
+                // Log or handle the exception
+                Console.WriteLine($"Failed to set discount: {ex.Message}");
+                return View("Error"); // You can render an error page
+            }
+        }
+
     }
 }

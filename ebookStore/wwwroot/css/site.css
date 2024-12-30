@@ -135,3 +135,9 @@ h2 {
     width: 100%;
   }
 }
+/* stule for strikethrough prices*/
+.book-card .discounted {
+  text-decoration: line-through;
+  color: red;
+  margin-right: 5px;
+}

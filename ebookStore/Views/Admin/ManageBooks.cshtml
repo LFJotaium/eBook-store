@@ -1,105 +1,147 @@
 @model List<ebookStore.Models.Book>
-
-<h2>Manage Books</h2>
-
-<div class="book-gallery">
-    @foreach (var book in Model)
-    {
-        <div class="book-card">
-            <img src="@book.CoverImagePath" alt="@book.Title" class="book-cover" />
-            <div class="book-info">
-                <h5>@book.Title</h5>
-                <p><strong>Author:</strong> @book.AuthorName</p>
-                <p><strong>Publisher:</strong> @book.Publisher</p>
-                <p><strong>Genre:</strong> @book.Genre</p>
-                <p><strong>Year:</strong> @book.YearOfPublish</p>
-                <p><strong>Price (Buy):</strong> $@book.PriceBuy</p>
-                <p><strong>Price (Borrow):</strong> $@book.PriceBorrowing</p>
-            </div>
-            <div class="admin-actions">
-                <form asp-action="DeleteBook" method="post" class="action-form">
-                    <input type="hidden" name="bookId" value="@book.ID" />
-                    <button type="submit" class="btn btn-danger">Delete</button>
-                </form>
-                <a asp-action="EditBook" asp-route-id="@book.ID" class="btn btn-primary">Edit</a>
-                <a asp-action="ChangePrice" asp-route-id="@book.ID" class="btn btn-secondary">Change Price</a>
-            </div>
+<div class="container">
+    <h1>Manage Books</h1>
+    
+    <!-- Search Bar -->
+    <form method="get" action="@Url.Action("ManageBooks", "Admin")" class="mb-3">
+        <div class="input-group">
+            <input type="text" class="form-control" name="searchQuery" placeholder="Search by title, author, or publisher" value="@Context.Request.Query["searchQuery"]" />
+            <button class="btn btn-outline-secondary" type="submit">Search</button>
         </div>
-        
-    }
+    </form>
+
+
+    <table class="table table-bordered">
+        <thead>
+        <tr>
+            <th>Cover</th> <!-- New column for cover -->
+            <th>Title</th>
+            <th>Author</th>
+            <th>Publisher</th>
+            <th>Current Buy Price</th>
+            <th>Current Borrow Price</th>
+            <th>Original Prices</th>
+            <th>Discount Ends</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var book in Model)
+        {
+            <tr>
+                <td>
+                    @if (!string.IsNullOrEmpty(book.CoverImagePath))
+                    {
+                        <img src="@book.CoverImagePath" alt="Cover" style="max-width: 100px; max-height: 100px;" />
+                    }
+                    else
+                    {
+                        <span>No Cover</span> <!-- Fallback if no cover image -->
+                    }
+                </td>
+                <td>@book.Title</td>
+                <td>@book.AuthorName</td>
+                <td>@book.Publisher</td>
+                <td>
+                    @if (book.Price?.IsDiscounted == true)
+                    {
+                        <span style="text-decoration: line-through; color: red;">
+                            @book.Price.OriginalPriceBuy.ToString("C")
+                        </span>
+                    }
+                    <span>@book.Price?.CurrentPriceBuy.ToString("C")</span>
+                </td>
+                <td>
+                    @if (book.Price?.IsDiscounted == true)
+                    {
+                        <span style="text-decoration: line-through; color: red;">
+                            @book.Price.OriginalPriceBorrow.ToString("C")
+                        </span>
+                    }
+                    <span>@book.Price?.CurrentPriceBorrow.ToString("C")</span>
+                </td>
+                <td>
+                    <span>Buy: @book.Price?.OriginalPriceBuy.ToString("C")</span><br />
+                    <span>Borrow: @book.Price?.OriginalPriceBorrow.ToString("C")</span>
+                </td>
+                <td>@book.Price?.DiscountEndDate?.ToString("yyyy-MM-dd")</td>
+                <td>
+                    <a href="#" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#setDiscountModal" data-id="@book.ID">
+                        Set Discount
+                    </a>
+                    <a href="/Admin/EditBook/@book.ID" class="btn btn-warning">Edit</a>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
 </div>
-<div class="modal fade" id="changePriceModal" tabindex="-1" aria-labelledby="changePriceModalLabel" aria-hidden="true">
+
+<!-- Set Discount Modal -->
+<div class="modal fade" id="setDiscountModal" tabindex="-1" aria-labelledby="setDiscountModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="changePriceModalLabel">Change Price</h5>
+                <h5 class="modal-title" id="setDiscountModalLabel">Set Discount</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="changePriceForm">
+                <form method="post" id="setDiscountForm" action="/Admin/SetDiscount">
                     <input type="hidden" id="bookId" name="bookId" />
                     <div class="mb-3">
-                        <label for="currentPrice" class="form-label">Current Price</label>
-                        <input type="text" id="currentPrice" class="form-control" readonly />
+                        <label for="discountedPriceBuy" class="form-label">Discounted Buy Price</label>
+                        <input type="number" id="discountedPriceBuy" name="discountedPriceBuy" class="form-control" step="0.01" required />
                     </div>
                     <div class="mb-3">
-                        <label for="newPrice" class="form-label">New Price</label>
-                        <input type="number" id="newPrice" name="newPrice" class="form-control" step="0.01" required />
+                        <label for="discountedPriceBorrow" class="form-label">Discounted Borrow Price</label>
+                        <input type="number" id="discountedPriceBorrow" name="discountedPriceBorrow" class="form-control" step="0.01" required />
                     </div>
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <div class="mb-3">
+                        <label for="discountEndDate" class="form-label">Discount End Date</label>
+                        <input type="date" id="discountEndDate" name="discountEndDate" class="form-control" required />
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Discount</button>
                 </form>
+
             </div>
         </div>
     </div>
 </div>
 
-@if (TempData["Message"] != null)
-{
-    <div class="alert alert-success mt-3">@TempData["Message"]</div>
-}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const setDiscountModal = document.getElementById("setDiscountModal");
+        const bookIdInput = document.getElementById("bookId");
 
-<!-- Styling -->
-<style>
-    .book-gallery {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 20px;
-    }
+        setDiscountModal.addEventListener("show.bs.modal", function (event) {
+            const button = event.relatedTarget;
+            const bookId = button.getAttribute("data-id");
+            bookIdInput.value = bookId;
+        });
 
-    .book-card {
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        background-color: #fff;
-        padding: 10px;
-        text-align: center;
-    }
+        document.getElementById("setDiscountForm").addEventListener("submit", async function (event) {
+            event.preventDefault();
 
-    .book-cover {
-        width: 100%;
-        height: auto;
-        max-height: 200px;
-        object-fit: cover;
-    }
+            const bookId = bookIdInput.value;
+            const discountedPriceBuy = document.getElementById("discountedPriceBuy").value;
+            const discountedPriceBorrow = document.getElementById("discountedPriceBorrow").value;
+            const discountEndDate = document.getElementById("discountEndDate").value;
 
-    .book-info {
-        margin-top: 10px;
-        font-size: 14px;
-    }
+            try {
+                const response = await fetch(`/Books/SetDiscount`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: bookId, discountedPriceBuy, discountedPriceBorrow, endDate: discountEndDate })
+                });
 
-    .admin-actions {
-        margin-top: 15px;
-    }
-
-    .admin-actions .btn {
-        margin: 5px 0;
-        display: block;
-        width: 100%;
-    }
-
-    .action-form {
-        display: inline-block;
-        margin: 0;
-    }
-</style>
+                if (response.ok) {
+                    location.reload(); // Reload the page to reflect changes
+                } else {
+                    alert("Failed to set discount. Please try again.");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+            }
+        });
+    });
+</script>
