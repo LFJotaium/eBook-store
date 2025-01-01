@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "9Y/s194uW9ZKMafgBM947GZVhMrzYY/8UYnNiySBb84=",
+  "Hash": "SKf5FOmRab3+BjZneXUnGlm0pFcrqIu4Bz9GxVZ+1z4=",
   "Source": "ebookStore",
   "BasePath": "_content/ebookStore",
   "Mode": "Default",
@@ -72,25 +72,6 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot/css/site.css"
-    },
-    {
-      "Identity": "/Users/firasabusada/Desktop/SW/שנה ג /מבוא לתקשורת מחשבים/project/ebookStore/ebookStore/wwwroot/favicon.ico",
-      "SourceId": "ebookStore",
-      "SourceType": "Discovered",
-      "ContentRoot": "/Users/firasabusada/Desktop/SW/שנה ג /מבוא לתקשורת מחשבים/project/ebookStore/ebookStore/wwwroot/",
-      "BasePath": "_content/ebookStore",
-      "RelativePath": "favicon.ico",
-      "AssetKind": "All",
-      "AssetMode": "All",
-      "AssetRole": "Primary",
-      "AssetMergeBehavior": "PreferTarget",
-      "AssetMergeSource": "",
-      "RelatedAsset": "",
-      "AssetTraitName": "",
-      "AssetTraitValue": "",
-      "CopyToOutputDirectory": "Never",
-      "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot/favicon.ico"
     },
     {
       "Identity": "/Users/firasabusada/Desktop/SW/שנה ג /מבוא לתקשורת מחשבים/project/ebookStore/ebookStore/wwwroot/js/site.js",

@@ -1,5 +1,4 @@
-using ebookStore.Models;
-
+namespace ebookStore.Models;
 public class Price
 {
     public int ID { get; set; }
@@ -11,5 +10,5 @@ public class Price
     public bool IsDiscounted { get; set; }
     public DateTime? DiscountEndDate { get; set; }
     
-    public Book Book { get; set; }
+    //public Book Book { get; set; }
 }

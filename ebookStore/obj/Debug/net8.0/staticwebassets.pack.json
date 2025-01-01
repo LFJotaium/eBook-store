@@ -9,10 +9,6 @@
       "PackagePath": "staticwebassets/css/site.css"
     },
     {
-      "Id": "/Users/firasabusada/Desktop/SW/שנה ג /מבוא לתקשורת מחשבים/project/ebookStore/ebookStore/wwwroot/favicon.ico",
-      "PackagePath": "staticwebassets/favicon.ico"
-    },
-    {
       "Id": "/Users/firasabusada/Desktop/SW/שנה ג /מבוא לתקשורת מחשבים/project/ebookStore/ebookStore/wwwroot/js/site.js",
       "PackagePath": "staticwebassets/js/site.js"
     },

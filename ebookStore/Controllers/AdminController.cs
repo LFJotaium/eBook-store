@@ -20,46 +20,67 @@ namespace ebookStore.Controllers
             return View(new Book());
         }
 
-        // Handle the Add Book Form Submission
+   
         [HttpPost("Admin/AddBook")]
-        public IActionResult AddBook(Book book)
-        {
-            if (!ModelState.IsValid)
-            {
-                return View(book);
-            }
+public IActionResult AddBook(Book book)
+{
+    Console.WriteLine("before Model State");
+    /*if (!ModelState.IsValid)
+    {
 
-            try
-            {
-                using var connection = new NpgsqlConnection(_connectionString);
-                connection.Open();
+        return View(book);
+    }*/
 
-                string query = @"
-                INSERT INTO Books (Title, AuthorName, Publisher, PriceBuy, PriceBorrowing, YearOfPublish, Genre, CoverImagePath)
-                VALUES (@Title, @AuthorName, @Publisher, @PriceBuy, @PriceBorrowing, @YearOfPublish, @Genre, @CoverImagePath)";
-                using var command = new NpgsqlCommand(query, connection);
+    try
+    {
+        Console.WriteLine("Try section");
+        using var connection = new NpgsqlConnection(_connectionString);
+        connection.Open();
+        Console.WriteLine("connected to db");
 
-                command.Parameters.AddWithValue("@Title", book.Title);
-                command.Parameters.AddWithValue("@AuthorName", book.AuthorName);
-                command.Parameters.AddWithValue("@Publisher", book.Publisher);
-                command.Parameters.AddWithValue("@PriceBuy", book.PriceBuy);
-                command.Parameters.AddWithValue("@PriceBorrowing", book.PriceBorrowing);
-                command.Parameters.AddWithValue("@YearOfPublish", book.YearOfPublish);
-                command.Parameters.AddWithValue("@Genre", book.Genre ?? (object)DBNull.Value);
-                command.Parameters.AddWithValue("@CoverImagePath", book.CoverImagePath ?? (object)DBNull.Value);
+        string query = @"
+            INSERT INTO Books (Title, AuthorName, Publisher, PriceBuy, PriceBorrowing, YearOfPublish, Genre, CoverImagePath)
+            VALUES (@Title, @AuthorName, @Publisher, @PriceBuy, @PriceBorrowing, @YearOfPublish, @Genre, @CoverImagePath)
+            RETURNING ID;";
+        
+        using var command = new NpgsqlCommand(query, connection);
+        command.Parameters.AddWithValue("@Title", book.Title);
+        command.Parameters.AddWithValue("@AuthorName", book.AuthorName);
+        command.Parameters.AddWithValue("@Publisher", book.Publisher);
+        command.Parameters.AddWithValue("@PriceBuy", book.PriceBuy);
+        command.Parameters.AddWithValue("@PriceBorrowing", book.PriceBorrowing);
+        command.Parameters.AddWithValue("@YearOfPublish", book.YearOfPublish);
+        command.Parameters.AddWithValue("@Genre", book.Genre ?? (object)DBNull.Value);
+        command.Parameters.AddWithValue("@CoverImagePath", book.CoverImagePath ?? (object)DBNull.Value);
+        
+        int bookId = (int)command.ExecuteScalar();
+        Console.WriteLine("1st query");
+        // Insert into Prices table
+        string priceQuery = @"
+            INSERT INTO Prices (bookId, currentpricebuy, currentpriceborrow, originalpricebuy, originalpriceborrow, isdiscounted, discountenddate)
+            VALUES (@bookid, @CurrentPriceBuy, @CurrentPriceBorrow, @OriginalPriceBuy, @OriginalPriceBorrow, false, NULL);";
+        
+        using var priceCommand = new NpgsqlCommand(priceQuery, connection);
+        priceCommand.Parameters.AddWithValue("@bookid", bookId);
+        priceCommand.Parameters.AddWithValue("@CurrentPriceBuy", book.PriceBuy);
+        priceCommand.Parameters.AddWithValue("@CurrentPriceBorrow", book.PriceBorrowing);
+        priceCommand.Parameters.AddWithValue("@OriginalPriceBuy", book.PriceBuy);
+        priceCommand.Parameters.AddWithValue("@OriginalPriceBorrow", book.PriceBorrowing);
+        priceCommand.ExecuteNonQuery();
+        Console.WriteLine("2nd query");
+        TempData["Message"] = "Book added successfully!";
+        return RedirectToAction("AddBook");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error: {ex.Message}");
+        ModelState.AddModelError("", "An error occurred while adding the book.");
+        return View(book);
+    }
+}
 
-                command.ExecuteNonQuery();
-                TempData["Message"] = "Book added successfully!";
-                return RedirectToAction("AddBook");
-            }
-            catch (Exception ex)
-            {
-                ModelState.AddModelError("", "An error occurred while adding the book.");
-                return View(book);
-            }
-        }
 
-        // Manage Books 
+      // Manage Books 
         [HttpGet("Admin/ManageBooks")]
         public IActionResult ManageBooks(string searchQuery)
         {

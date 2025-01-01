@@ -22,8 +22,10 @@ public class Book
    public string CoverImagePath {get;set;}
    //price related 
    public Price Price { get; set; }
+   /*
    public bool IsBorrowable { get; set; }
    public int AvailableCopies { get; set; }
    public List<string> Formats { get; set; }
    public int AgeRestriction { get; set; }
+*/
 }
