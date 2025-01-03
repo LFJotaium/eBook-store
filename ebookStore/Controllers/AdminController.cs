@@ -150,7 +150,7 @@ public IActionResult AddBook(Book book)
             return RedirectToAction("ManageBooks");
         }
 
-        // Edit Book - GET
+        // Edit Book - GET : to show selected book data in page fileds 
         [HttpGet("Admin/EditBook/{id}")]
         public IActionResult EditBook(int id)
         {
@@ -186,42 +186,70 @@ public IActionResult AddBook(Book book)
             return View(book);
         }
 
-        // Edit Book - POST
-        [HttpPost("Admin/EditBook")]
-        public IActionResult EditBook(Book book)
+        // Edit Book - POST also make sure to update the two tables with updated values 
+[HttpPost]
+public IActionResult EditBook(Book book)
+{
+    try
+    {
+        using (var connection = new NpgsqlConnection(_connectionString))
         {
-            if (!ModelState.IsValid)
+            connection.Open();
+            using (var transaction = connection.BeginTransaction())
             {
-                return View(book);
-            }
-
-            using (var connection = new NpgsqlConnection(_connectionString))
-            {
-                connection.Open();
-                string query = @"
+                // Update the Books table
+                string updateBooksQuery = @"
                 UPDATE Books
                 SET Title = @Title, AuthorName = @AuthorName, Publisher = @Publisher, 
                     PriceBuy = @PriceBuy, PriceBorrowing = @PriceBorrowing, 
                     YearOfPublish = @YearOfPublish, Genre = @Genre, CoverImagePath = @CoverImagePath
                 WHERE ID = @ID";
-                using var command = new NpgsqlCommand(query, connection);
 
-                command.Parameters.AddWithValue("@ID", book.ID);
-                command.Parameters.AddWithValue("@Title", book.Title);
-                command.Parameters.AddWithValue("@AuthorName", book.AuthorName);
-                command.Parameters.AddWithValue("@Publisher", book.Publisher);
-                command.Parameters.AddWithValue("@PriceBuy", book.PriceBuy);
-                command.Parameters.AddWithValue("@PriceBorrowing", book.PriceBorrowing);
-                command.Parameters.AddWithValue("@YearOfPublish", book.YearOfPublish);
-                command.Parameters.AddWithValue("@Genre", book.Genre ?? (object)DBNull.Value);
-                command.Parameters.AddWithValue("@CoverImagePath", book.CoverImagePath ?? (object)DBNull.Value);
+                using (var bookCommand = new NpgsqlCommand(updateBooksQuery, connection))
+                {
+                    bookCommand.Parameters.AddWithValue("@ID", book.ID);
+                    bookCommand.Parameters.AddWithValue("@Title", book.Title);
+                    bookCommand.Parameters.AddWithValue("@AuthorName", book.AuthorName);
+                    bookCommand.Parameters.AddWithValue("@Publisher", book.Publisher);
+                    bookCommand.Parameters.AddWithValue("@PriceBuy", book.PriceBuy);
+                    bookCommand.Parameters.AddWithValue("@PriceBorrowing", book.PriceBorrowing);
+                    bookCommand.Parameters.AddWithValue("@YearOfPublish", book.YearOfPublish);
+                    bookCommand.Parameters.AddWithValue("@Genre", book.Genre ?? (object)DBNull.Value);
+                    bookCommand.Parameters.AddWithValue("@CoverImagePath", book.CoverImagePath ?? (object)DBNull.Value);
 
-                command.ExecuteNonQuery();
+                    bookCommand.ExecuteNonQuery();
+                }
+
+                // Update the Prices table
+                string updatePricesQuery = @"
+                UPDATE Prices
+                SET CurrentPriceBuy = @CurrentPriceBuy, CurrentPriceBorrow = @CurrentPriceBorrow
+                WHERE BookID = @BookID";
+
+                using (var priceCommand = new NpgsqlCommand(updatePricesQuery, connection))
+                {
+                    priceCommand.Parameters.AddWithValue("@BookID", book.ID);
+                    priceCommand.Parameters.AddWithValue("@CurrentPriceBuy", book.PriceBuy);
+                    priceCommand.Parameters.AddWithValue("@CurrentPriceBorrow", book.PriceBorrowing);
+
+                    priceCommand.ExecuteNonQuery();
+                }
+
+                transaction.Commit();
             }
-
-            TempData["Message"] = "Book updated successfully!";
-            return RedirectToAction("ManageBooks");
         }
+
+        TempData["Message"] = "Book and prices updated successfully!";
+        return RedirectToAction("ManageBooks");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error updating book and prices: {ex.Message}");
+        TempData["Error"] = "An error occurred while updating the book and prices.";
+        return View(book);
+    }
+}
+
         [HttpPost("Admin/SetDiscount")]
         public IActionResult SetDiscount(int bookId, decimal discountedPriceBuy, decimal discountedPriceBorrow, DateTime discountEndDate)
         {
