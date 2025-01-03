@@ -16,6 +16,7 @@ namespace ebookStore.Controllers
         [Route("Account/SignUp")]
         public IActionResult SignUp()
         {
+            Console.WriteLine("account.cs");
             return View();
         }
         

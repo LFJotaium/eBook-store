@@ -50,5 +50,8 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "EditBook",
     pattern: "{controller=Admin}/{action=EditBook}/{id?}");
+app.MapControllerRoute(
+    name: "Checkout",
+    pattern: "{controller=Cart}/{action = Checkout}/{id?}");
 
 app.Run();

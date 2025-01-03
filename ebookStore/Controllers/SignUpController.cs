@@ -23,6 +23,7 @@ namespace ebookStore.Controllers
         
         public IActionResult SignUp()
         {
+            Console.WriteLine("Sign Up.cs");
             return View(); // return the SignUp View
         }
         [HttpPost]
