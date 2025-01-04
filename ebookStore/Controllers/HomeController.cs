@@ -60,7 +60,15 @@ namespace ebookStore.Controllers
                 }
 
                 // Start with the base query
-                string query = "SELECT * FROM Books WHERE 1=1";
+                string query = @"
+                    SELECT b.ID, b.Title, b.AuthorName, b.Publisher, 
+                           p.CurrentPriceBuy, p.CurrentPriceBorrow, 
+                           p.OriginalPriceBuy, p.OriginalPriceBorrow, 
+                           p.IsDiscounted, p.DiscountEndDate, 
+                           b.YearOfPublish, b.Genre, b.CoverImagePath
+                    FROM Books b
+                    LEFT JOIN Prices p ON b.ID = p.BookID
+                    WHERE 1=1";
 
                 // Apply filters dynamically based on provided parameters
                 if (!string.IsNullOrEmpty(titleFilter))
@@ -119,27 +127,32 @@ namespace ebookStore.Controllers
                 {
                     command.Parameters.AddWithValue("@MaxPrice", maxPrice.Value);
                 }
-
+                
                 using var reader = command.ExecuteReader();
 
                 // Read the results and populate the books list
                 while (reader.Read())
                 {
-                    books.Add(new Book
+                    var book = new Book
                     {
-                        ID = reader.GetInt32(reader.GetOrdinal("ID")),
-                        Title = reader.GetString(reader.GetOrdinal("Title")),
-                        AuthorName = reader.GetString(reader.GetOrdinal("AuthorName")),
-                        Publisher = reader.GetString(reader.GetOrdinal("Publisher")),
-                        PriceBuy = reader.GetDecimal(reader.GetOrdinal("PriceBuy")),
-                        PriceBorrowing = reader.GetDecimal(reader.GetOrdinal("PriceBorrowing")),
-                        YearOfPublish = reader.GetInt32(reader.GetOrdinal("YearOfPublish")),
-                        Genre = reader.IsDBNull(reader.GetOrdinal("Genre")) ? null : reader.GetString(reader.GetOrdinal("Genre")),
-                        CoverImagePath = reader.IsDBNull(reader.GetOrdinal("CoverImagePath")) ? null : reader.GetString(reader.GetOrdinal("CoverImagePath")),
-                        SoldCopies = reader.IsDBNull(reader.GetOrdinal("SoldCopies")) ? 0 : reader.GetInt32(reader.GetOrdinal("SoldCopies")),
-                        AgeLimit = reader.IsDBNull(reader.GetOrdinal("AgeLimit")) ? 13 : reader.GetInt32(reader.GetOrdinal("AgeLimit")),
-                        CopiesAvailable = reader.IsDBNull(reader.GetOrdinal("CopiesAvailable")) ? 0 : reader.GetInt32(reader.GetOrdinal("CopiesAvailable"))
-                    });
+                        ID = reader.GetInt32(0),
+                        Title = reader.GetString(1),
+                        AuthorName = reader.GetString(2),
+                        Publisher = reader.GetString(3),
+                        YearOfPublish = reader.GetInt32(10),
+                        Genre = reader.GetString(11),
+                        CoverImagePath = reader.GetString(12),
+                        Price = new Price
+                        {
+                            CurrentPriceBuy = reader.IsDBNull(4) ? 0 : reader.GetDecimal(4),
+                            CurrentPriceBorrow = reader.IsDBNull(5) ? 0 : reader.GetDecimal(5),
+                            OriginalPriceBuy = reader.IsDBNull(6) ? 0 : reader.GetDecimal(6),
+                            OriginalPriceBorrow = reader.IsDBNull(7) ? 0 : reader.GetDecimal(7),
+                            IsDiscounted = reader.IsDBNull(8) ? false : reader.GetBoolean(8),
+                            DiscountEndDate = reader.IsDBNull(9) ? (DateTime?)null : reader.GetDateTime(9)
+                        }
+                    };
+                    books.Add(book);
                 }
             }
             catch (Exception ex)

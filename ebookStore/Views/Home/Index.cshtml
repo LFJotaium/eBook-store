@@ -113,7 +113,6 @@
 
                 var feedbacks = book.Feedbacks as IEnumerable<Feedback>;
                 var averageRating = feedbacks != null && feedbacks.Any() ? feedbacks.Average(f => f.Rating) : 0;
-
                 <div class="col-md-3">
                     <div class="card h-100 shadow-sm">
                         <img src="@book.CoverImagePath" class="card-img-top" alt="@book.Title" style="height: 300px; object-fit: cover;">
@@ -122,21 +121,35 @@
                             <p class="card-text mb-1"><strong>Author:</strong> @book.AuthorName</p>
                             <p class="card-text mb-1"><strong>Genre:</strong> @book.Genre</p>
                             <p class="card-text mb-1"><strong>Year:</strong> @book.YearOfPublish</p>
-                            <p class="card-text mb-1 text-primary"><strong>Buy:</strong> $@book.PriceBuy</p>
-                            <p class="card-text mb-1"><strong>Borrow:</strong> $@book.PriceBorrowing</p>
                             <p class="card-text mb-1"><strong>Available:</strong> @book.CopiesAvailable</p>
                             <p class="card-text mb-1"><strong>Sold:</strong> @book.SoldCopies</p>
                             <p class="card-text mb-1"><strong>Borrowed:</strong> @book.BorrowedCopies</p>
                             <p class="card-text mb-1"><strong>Age Limit:</strong> +@book.AgeLimit</p>
+                            <!--condition to check if Discounted and strikethrough-->
+                            <p class="card-text mb-1 text-primary"><strong>Buy:</strong> @if (book.Price?.IsDiscounted == true)
+                                {
+                                    <span style="text-decoration: line-through; color: red;">
+                            @book.Price.OriginalPriceBuy.ToString("C")
+                        </span>
+                                }
+                                <span>@book.Price?.CurrentPriceBuy.ToString("C")</span></p>
+                            <p class="card-text mb-1"><strong>Borrow:</strong> @if (book.Price?.IsDiscounted == true)
+                                {
+                                    <span style="text-decoration: line-through; color: red;">
+                            @book.Price.OriginalPriceBorrow.ToString("C")
+                        </span>
+                                }
+                                <span>@book.Price?.CurrentPriceBorrow.ToString("C")</span></p>
+                            @if (book.IsDiscounted)
+                            {
+                                <p class="card-text mb-1"><strong>Discount Ends:</strong> @book.Price?.DiscountEndDate?.ToString("yyyy-MM-dd")</p>
+                            }
+
 
                             <p class="card-text mb-2">
                                 <strong>Rating:</strong>
                                 <span class="text-warning">@string.Format("{0:0.0}", averageRating)</span>/5
                             </p>
-                            @if (book.IsDiscounted)
-                            {
-                                <span class="badge bg-success text-white">Discounted</span>
-                            }
                             <div class="mt-auto">
                                 <form asp-action="BorrowBook" method="post">
                                     <input type="hidden" name="BookId" value="@book.ID" />
