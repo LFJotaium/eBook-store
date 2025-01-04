@@ -9,6 +9,11 @@ public class EbookContext :DbContext
     public DbSet<User> Users { get; set; }
     public DbSet<Book> Books { get; set; }
     public DbSet<Price> Prices { get; set; }
+    public DbSet<BorrowedBook> BorrowedBooks { get; set; }
+    public DbSet<PurchasedBook> PurchasedBooks { get; set; }
+    public DbSet<Feedback> Feedbacks { get; set; }
+    public DbSet<WaitingListEntry> WaitingListEntries { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -20,7 +25,41 @@ public class EbookContext :DbContext
             entity.HasIndex(u => u.Email).IsUnique(); // Unique email
             entity.Property(u => u.Role).HasDefaultValue("User");
         });
+
+        modelBuilder.Entity<BorrowedBook>(entity =>
+        {
+            entity.HasKey(bb => bb.Id);
+            entity.HasOne(bb => bb.Book)
+                .WithMany()
+                .HasForeignKey(bb => bb.BookId);
+
+            entity.HasOne(bb => bb.User)
+                .WithMany(u => u.BorrowedBooks) // Navigation property in User
+                .HasForeignKey(bb => bb.Username)
+                .OnDelete(DeleteBehavior.Cascade); // Optional: Handle delete behavior
+        });
+// Feedback entity configuration
+        modelBuilder.Entity<Feedback>(entity =>
+        {
+            entity.HasKey(f => f.Id);
+            entity.HasOne(f => f.Book)
+                .WithMany()
+                .HasForeignKey(f => f.BookId);
+            entity.HasOne(f => f.User)
+                .WithMany()
+                .HasForeignKey(f => f.Username);
+        });
+        // WaitingListEntry entity configuration
+        modelBuilder.Entity<WaitingListEntry>(entity =>
+        {
+            entity.HasKey(wl => wl.Id);
+            entity.HasOne(wl => wl.Book)
+                .WithMany()
+                .HasForeignKey(wl => wl.BookId);
+            entity.Property(wl => wl.Username).IsRequired();
+        });
     }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         optionsBuilder.EnableSensitiveDataLogging(false);

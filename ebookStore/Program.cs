@@ -4,7 +4,15 @@ using Microsoft.EntityFrameworkCore;  // For Entity Framework Core
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure services
+builder.Services.AddDistributedMemoryCache(); // Cache for session
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30); // Session timeout
+    options.Cookie.HttpOnly = true; // Cookie security
+    options.Cookie.IsEssential = true; // Ensures the cookie is set for essential purposes
 
+});
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 //Add DbContext configuration
@@ -25,9 +33,10 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+app.UseHttpsRedirection(); 
 app.UseStaticFiles();
-
+// Use session middleware.
+app.UseSession();
 app.UseRouting();
 
 app.UseAuthorization();
@@ -42,7 +51,7 @@ app.MapControllerRoute(
     name: "login_route",
     pattern: "{controller=Account} / {action=LogIn}/{id?}");
 app.MapControllerRoute(
-    name: "admin",
+    name: "addBook",
     pattern: "{controller=Admin}/{action=AddBook}/{id?}");
 app.MapControllerRoute(
     name: "ManageBooks",
@@ -53,5 +62,9 @@ app.MapControllerRoute(
 app.MapControllerRoute(
     name: "Checkout",
     pattern: "{controller=Cart}/{action = Checkout}/{id?}");
+app.MapControllerRoute(
+    name: "profile",
+    pattern: "User/Profile/{username?}",
+    defaults: new { controller = "User", action = "Profile" });
 
 app.Run();

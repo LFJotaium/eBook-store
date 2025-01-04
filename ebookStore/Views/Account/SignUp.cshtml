@@ -1,7 +1,7 @@
-@model ebookStore.Models.User
+@model UserRegistrationViewModel
 
 <h2>Sign Up</h2>
-<form asp-action="SignUp" method="post">
+<form method="post" asp-controller="SignUp" asp-action="SignUp">
     <div>
         <label asp-for="Username"></label>
         <input asp-for="Username" class="form-control" />

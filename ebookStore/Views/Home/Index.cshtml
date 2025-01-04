@@ -1,23 +1,152 @@
-@model List<ebookStore.Models.Book>
+<section class="book-gallery py-5 bg-light">
+    <div class="container">
 
-<section class="book-gallery">
-    <h2>Explore Our Collection</h2>
-    <div class="row">
-        @foreach (var book in Model)
-        {
-            <div class="card">
-                <img src="@book.CoverImagePath" class="card-img-top" alt="@book.Title">
-                <div class="card-body">
-                    <h5 class="card-title">@book.Title</h5>
-                    <p class="card-text">Author: @book.AuthorName</p>
-                    <p class="card-text">Publisher: @book.Publisher</p>
-                    <p class="card-text">Genre: @book.Genre</p>
-                    <p class="card-text">Year: @book.YearOfPublish</p>
-                    <p class="card-text">Buy: $@book.PriceBuy</p>
-                    <p class="card-text">Borrow: $@book.PriceBorrowing</p>
+
+
+        <div class="container mt-5">
+            <div class="row mb-4 justify-content-center">
+                <div class="col-auto">
+                    <div class="welcome-box text-center p-4 rounded shadow">
+                        <span class="fw-bold fs-4">
+                            @if (Context.Session.GetString("Username") != null)
+
+                            {
+                                @:Welcome, @Context.Session.GetString("Username")! Your Role is @Context.Session.GetString("Role").
+                            }
+
+                            else
+
+                            {
+                                @:Welcome, Guest
+                            }
+                        </span>
+                    </div>
                 </div>
             </div>
-        }
-    </div>
+        </div>
 
+
+
+        <h2 class="text-center mb-4">Explore Our Collection</h2>
+
+        <!-- Filtering and Sorting -->
+        <form method="get" asp-action="Index" class="mb-5 p-4 shadow-sm bg-white rounded">
+            <div class="row g-4">
+                <!-- Genre Filter -->
+                <div class="col">
+                    <label for="genreFilter" class="form-label fw-bold text-secondary">Genre</label>
+                    <select id="genreFilter" name="genreFilter" class="form-select form-select-lg">
+                        <option value="">All</option>
+                        @foreach (var genre in (IEnumerable<string>)ViewData["AllGenres"])
+                        {
+                            <option value="@genre" selected="@(ViewData["genreFilter"]?.ToString() == genre ? "selected" : null)">@genre</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="row g-4">
+                    <!-- Title Filter -->
+                    <div class="col">
+                        <label for="titleFilter" class="form-label fw-bold text-secondary">Title</label>
+                        <input id="titleFilter" name="titleFilter" class="form-control form-control-lg" placeholder="Enter Title" value="@ViewData["titleFilter"]" />
+                    </div>
+
+                    <!-- Author Filter -->
+                    <div class="col">
+                        <label for="authorFilter" class="form-label fw-bold text-secondary">Author</label>
+                        <input id="authorFilter" name="authorFilter" class="form-control form-control-lg" placeholder="Enter Author Name" value="@ViewData["authorFilter"]" />
+                    </div>
+                </div>
+
+
+            </div>
+
+
+            <div class="row g-4 mt-4">
+                <!-- Min Price Filter -->
+                <div class="col">
+                    <label for="minPrice" class="form-label fw-bold text-secondary">Min Price</label>
+                    <input id="minPrice" name="minPrice" type="number" step="1" class="form-control form-control-lg" placeholder="0.00" value="@ViewData["minPrice"]" />
+                </div>
+
+                <!-- Max Price Filter -->
+                <div class="col">
+                    <label for="maxPrice" class="form-label fw-bold text-secondary">Max Price</label>
+                    <input id="maxPrice" name="maxPrice" type="number" step="1" class="form-control form-control-lg" placeholder="0.00" value="@ViewData["maxPrice"]" />
+                </div>
+
+                <!-- Discount Filter -->
+                <div class="col">
+                    <div class="form-check form-switch mt-4">
+                        <input class="form-check-input form-check-lg" type="checkbox" id="showDiscounted" name="showDiscounted" value="true" @(ViewData["showDiscounted"] != null && (bool)ViewData["showDiscounted"] ? "checked" : "") />
+                        <label for="showDiscounted" class="form-label fw-bold text-secondary ms-2">Discounted Only</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mt-4">
+                <!-- Sort Order Filter -->
+                <div class="col">
+                    <label for="sortOrder" class="form-label fw-bold text-secondary">Sort By</label>
+                    <select id="sortOrder" name="sortOrder" class="form-select form-select-lg">
+                        <option value="price_asc" selected="@(ViewData["sortOrder"]?.ToString() == "price_asc" ? "selected" : null)">Price (Low to High)</option>
+                        <option value="price_desc" selected="@(ViewData["sortOrder"]?.ToString() == "price_desc" ? "selected" : null)">Price (High to Low)</option>
+                        <option value="year_asc" selected="@(ViewData["sortOrder"]?.ToString() == "year_asc" ? "selected" : null)">Year (Oldest)</option>
+                        <option value="year_desc" selected="@(ViewData["sortOrder"]?.ToString() == "year_desc" ? "selected" : null)">Year (Newest)</option>
+                        <option value="popularity" selected="@(ViewData["sortOrder"]?.ToString() == "popularity" ? "selected" : null)">Popularity</option>
+                    </select>
+                </div>
+
+                <!-- Apply Filters Button -->
+                <div class="col d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary btn-lg w-100">
+                        <i class="fas fa-filter me-2"></i> Apply Filters
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Book Cards -->
+        <div class="row g-4">
+            @foreach (var book in Model)
+            {
+
+                var feedbacks = book.Feedbacks as IEnumerable<Feedback>;
+                var averageRating = feedbacks != null && feedbacks.Any() ? feedbacks.Average(f => f.Rating) : 0;
+
+                <div class="col-md-3">
+                    <div class="card h-100 shadow-sm">
+                        <img src="@book.CoverImagePath" class="card-img-top" alt="@book.Title" style="height: 300px; object-fit: cover;">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title text-truncate">@book.Title</h5>
+                            <p class="card-text mb-1"><strong>Author:</strong> @book.AuthorName</p>
+                            <p class="card-text mb-1"><strong>Genre:</strong> @book.Genre</p>
+                            <p class="card-text mb-1"><strong>Year:</strong> @book.YearOfPublish</p>
+                            <p class="card-text mb-1 text-primary"><strong>Buy:</strong> $@book.PriceBuy</p>
+                            <p class="card-text mb-1"><strong>Borrow:</strong> $@book.PriceBorrowing</p>
+                            <p class="card-text mb-1"><strong>Available:</strong> @book.CopiesAvailable</p>
+                            <p class="card-text mb-1"><strong>Sold:</strong> @book.SoldCopies</p>
+                            <p class="card-text mb-1"><strong>Borrowed:</strong> @book.BorrowedCopies</p>
+                            <p class="card-text mb-1"><strong>Age Limit:</strong> +@book.AgeLimit</p>
+
+                            <p class="card-text mb-2">
+                                <strong>Rating:</strong>
+                                <span class="text-warning">@string.Format("{0:0.0}", averageRating)</span>/5
+                            </p>
+                            @if (book.IsDiscounted)
+                            {
+                                <span class="badge bg-success text-white">Discounted</span>
+                            }
+                            <div class="mt-auto">
+                                <form asp-action="BorrowBook" method="post">
+                                    <input type="hidden" name="BookId" value="@book.ID" />
+                                    <button type="submit" class="btn btn-primary w-100 mt-2">Borrow Now</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
 </section>

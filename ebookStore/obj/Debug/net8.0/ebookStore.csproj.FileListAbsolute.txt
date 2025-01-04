@@ -46,3 +46,4 @@
 /Users/firasabusada/Desktop/SW/שנה ג /מבוא לתקשורת מחשבים/project/ebookStore/ebookStore/obj/Debug/net8.0/ebookStore.csproj.AssemblyReference.cache
 /Users/firasabusada/Desktop/SW/שנה ג /מבוא לתקשורת מחשבים/project/ebookStore/ebookStore/obj/Debug/net8.0/ebookStore.sourcelink.json
 /Users/firasabusada/Desktop/SW/שנה ג /מבוא לתקשורת מחשבים/project/ebookStore/ebookStore/obj/Debug/net8.0/ebookStore.csproj.Up2Date
+/Users/firasabusada/Desktop/SW/שנה ג /מבוא לתקשורת מחשבים/project/ebookStore/ebookStore/bin/Debug/net8.0/System.Security.Permissions.dll

@@ -23,8 +23,7 @@ namespace ebookStore.Controllers
         
         public IActionResult SignUp()
         {
-            Console.WriteLine("Sign Up.cs");
-            return View(); // return the SignUp View
+            return View("~/Views/Account/SignUp.cshtml");
         }
         [HttpPost]
         public void SaveUserToDatabase(User user)
@@ -57,26 +56,63 @@ namespace ebookStore.Controllers
             parameterizeCommand(command);
             command.ExecuteNonQuery();
         }
-        
+
         [HttpPost]
         [Route("Account/SignUp")]
-        public IActionResult SignUp(User user)
+        public IActionResult SignUp(UserRegistrationViewModel userViewModel)
         {
-            /// have to add function to check username 
-            if (IsEmailAlreadyExist(_connectionString,user.Email))
+            if (IsEmailAlreadyExist(_connectionString, userViewModel.Email))
             {
                 ModelState.AddModelError("Email", "This email is already registered.");
-                return View(user);
+                return View("~/Views/Account/SignUp.cshtml", userViewModel);
             }
-            if (ModelState.IsValid)
+
+            if (!ModelState.IsValid)
+            {
+                foreach (var modelError in ModelState.Values.SelectMany(v => v.Errors))
+                {
+                    _logger.LogWarning($"Validation Error: {modelError.ErrorMessage}");
+                }
+                return View("~/Views/Account/SignUp.cshtml", userViewModel);
+            }
+
+            // Map the ViewModel to the User model
+            var user = new User
+            {
+                FirstName = userViewModel.FirstName,
+                LastName = userViewModel.LastName,
+                Username = userViewModel.Username,
+                Email = userViewModel.Email,
+                Password = userViewModel.Password,
+                Role = userViewModel.Role
+            };
+
+            try
             {
                 SaveUserToDatabase(user);
-                return RedirectToAction("Index", "Home"); // Redirect to success page
+
+                // Store the user info in session after successful registration
+                HttpContext.Session.SetString("Username", user.Username);
+                HttpContext.Session.SetString("FirstName", user.FirstName);
+                HttpContext.Session.SetString("LastName", user.LastName);
+                HttpContext.Session.SetString("Email", user.Email);
+                HttpContext.Session.SetString("Role", user.Role);
+
+                return RedirectToAction("Index", "Home"); // Redirect to a success page
             }
-            return View(user); // Return the view with validation errors if any
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while saving user to database");
+                ModelState.AddModelError("", "An error occurred while processing your request.");
+                return View("~/Views/Account/SignUp.cshtml", userViewModel);
+            }
         }
-        public  bool IsEmailAlreadyExist(string connectionString,string email)
+
+        public bool IsEmailAlreadyExist(string connectionString,string email)
+
         {
+            Console.WriteLine("HERE3");
+
             using var connection = new NpgsqlConnection(connectionString);
             connection.Open();
 

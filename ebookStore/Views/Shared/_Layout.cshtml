@@ -2,12 +2,107 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - ebookStore</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css"/>
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true"/>
-    <link rel="stylesheet" href="~/ebookStore.styles.css" asp-append-version="true"/>
+
+    <!-- Linking to Google Fonts for better typography -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" />
+
+    <!-- Bootstrap 5 CSS -->
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/ebookStore.styles.css" asp-append-version="true" />
+
+    <style>
+        /* Custom Styles for Navigation Bar */
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        header {
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Change project name (logo) to black */
+        .navbar .navbar-brand {
+            color: #000 !important; /* Black color */
+            font-weight: 600;
+            font-size: 2rem; /* Increase size of logo */
+        }
+
+        .navbar {
+            background-color: #007bff;
+            color: #fff;
+        }
+
+        /* Change navbar link color */
+        .navbar .navbar-nav .nav-link {
+            color: #343a40 !important; /* Dark color for regular state */
+            font-weight: bold; /* Make the font bold */
+            font-size: 1.1rem; /* Increase size of the links */
+            padding-left: 20px;
+            padding-right: 20px;
+        }
+
+        /* Change link color on hover */
+        .navbar .navbar-nav .nav-link:hover {
+            color: #ffcc00 !important; /* Yellow color on hover */
+            text-decoration: underline;
+        }
+
+        .navbar-toggler {
+            background-color: #fff;
+        }
+
+        .navbar-collapse {
+            justify-content: flex-end;
+        }
+
+        .navbar-nav {
+            flex-direction: row;
+        }
+
+        .logout-btn {
+            font-weight: bold;
+            font-size: 1.3rem;
+            color: #fff;
+            background-color: #dc3545; /* Red color */
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .logout-btn:hover {
+            background-color: #c82333; /* Darker red on hover */
+        }
+
+
+
+        .footer {
+            background-color: #343a40;
+            color: #fff;
+            padding: 20px 0;
+        }
+
+        .footer a {
+            color: #ffcc00;
+        }
+
+        .footer a:hover {
+            color: #fff;
+        }
+
+        .container {
+            margin-top: 30px;
+        }
+    </style>
+
+
 </head>
 <body>
 <header>
@@ -21,22 +116,55 @@
             <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                 <ul class="navbar-nav flex-grow-1">
                     <li class="nav-item">
-                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Gallery</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link text-dark" asp-area="" asp-controller="SignUp" asp-action="SignUp">Register</a>
-                    </li>
+
+                    @if (!string.IsNullOrEmpty(Context.Session.GetString("Username")))
+
+                    {
+
+                        var username = Context.Session.GetString("Username");
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="User" asp-action="Profile" asp-route-username="@username">Profile</a>
+                        </li>
+                    }
+
+
+                    @if (Context.Session.GetString("Role") == "Admin")
+
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" href="/Admin/ManageBooks">Admin</a>
+                        </li>
+                    }
                 </ul>
+
+                @if (!string.IsNullOrEmpty(Context.Session.GetString("Username")))
+                {
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item">
+                            <a class="nav-link" href="/Account/Logout">
+                                <button class="logout-btn">Logout</button>
+                            </a>
+                        </li>
+                    </ul>
+                }
             </div>
         </div>
     </nav>
 </header>
+
 <div class="container">
     <main role="main" class="pb-3">
         @RenderBody()
     </main>
 </div>
 
+<footer class="footer text-muted">
+    <div class="container">
+        &copy; 2024 - ebookStore - <a asp-area="" asp-controller="SignUp" asp-action="Privacy">Privacy</a>
+    </div>
+</footer>
 
 <script src="~/lib/jquery/dist/jquery.min.js"></script>
 <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>

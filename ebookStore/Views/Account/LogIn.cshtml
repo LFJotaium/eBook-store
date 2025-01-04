@@ -1,9 +1,25 @@
 <form method="post" asp-controller="LogIn" asp-action="LogIn">
-<label for="Email">Email</label>
+    <label for="Email">Email</label>
     <input type="email" id="Email" name="Email" required />
 
     <label for="Password">Password</label>
     <input type="password" id="Password" name="Password" required />
 
-    <button type="submit">Log In</button>
+    <button type="submit" style="padding: 10px 20px; font-size: 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Log In</button>
+
+    <!-- Display error message if there is one -->
+    @if (ViewBag.ErrorMessage != null)
+
+    {
+        <div style="color: red; margin-top: 10px;">
+            @ViewBag.ErrorMessage
+        </div>
+    }
+
+    <!-- Register Button -->
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="/Account/SignUp" style="font-size: 16px; color: #007bff; text-decoration: none; font-family: 'Arial', sans-serif; font-weight: 600;">
+            Or Register if you don't have an account
+        </a>
+    </div>
 </form>

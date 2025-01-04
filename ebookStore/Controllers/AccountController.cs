@@ -16,8 +16,15 @@ namespace ebookStore.Controllers
         [Route("Account/SignUp")]
         public IActionResult SignUp()
         {
-            Console.WriteLine("account.cs");
             return View();
+        }
+        public IActionResult Logout()
+        {
+            // Clear all session data
+            HttpContext.Session.Clear();
+
+            // Redirect to the home page or login page after logging out
+            return RedirectToAction("Index", "Home");
         }
         
     }

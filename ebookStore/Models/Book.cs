@@ -22,10 +22,28 @@ public class Book
    public string CoverImagePath {get;set;}
    //price related 
    public Price Price { get; set; }
-   /*
-   public bool IsBorrowable { get; set; }
-   public int AvailableCopies { get; set; }
-   public List<string> Formats { get; set; }
-   public int AgeRestriction { get; set; }
-*/
+   public int CopiesAvailable { get; set; }
+   public int SoldCopies { get; set; }
+   public int BorrowedCopies {  get; set; }
+   public bool IsDiscounted { get; set; }
+   public int AgeLimit { get; set; }
+   public virtual ICollection<BookFeedback> Feedbacks { get; set; } = new List<BookFeedback>();
+   public class BookFeedback
+   {
+      [Key]
+      public int Id { get; set; }
+
+      [Required]
+      public int BookId { get; set; }
+
+      [Required]
+      public string UserId { get; set; }
+
+      [Required]
+      [Range(1, 5, ErrorMessage = "Rating must be between 1 and 5")]
+      public int Rating { get; set; }
+
+      [MaxLength(500)]
+      public string Comment { get; set; }
+   }
 }
