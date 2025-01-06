@@ -12,7 +12,7 @@ namespace ebookStore.Controllers
         {
             _connectionString = configuration.GetConnectionString("DefaultConnectionString");
         }
-
+//----------------------Book Service------------------//
         // Display the Add Book Form
         [HttpGet("Admin/AddBook")]
         public IActionResult AddBook()
@@ -121,12 +121,8 @@ public IActionResult AddBook(Book book)
 
             return View(books);
         }
-
-
         
-
-
-        // Deleting books action
+        // Deleting books 
         [HttpPost("Admin/DeleteBook")]
         public IActionResult DeleteBook(int bookId)
         {
@@ -140,7 +136,6 @@ public IActionResult AddBook(Book book)
             TempData["Message"] = "Book deleted successfully!";
             return RedirectToAction("ManageBooks");
         }
-
         // Edit Book - GET : to show selected book data in page fileds 
         [HttpGet("Admin/EditBook/{id}")]
         public IActionResult EditBook(int id)
@@ -176,7 +171,6 @@ public IActionResult AddBook(Book book)
 
             return View(book);
         }
-
         // Edit Book - POST also make sure to update the two tables with updated values 
 [HttpPost]
 public IActionResult EditBook(Book book)
@@ -229,7 +223,6 @@ public IActionResult EditBook(Book book)
                 transaction.Commit();
             }
         }
-
         TempData["Message"] = "Book and prices updated successfully!";
         return RedirectToAction("ManageBooks");
     }
@@ -269,6 +262,84 @@ public IActionResult EditBook(Book book)
                 return View("Error"); // You can render an error page
             }
         }
+        //----------------------User Service------------------//
+        //Delete User
+        [HttpPost("Admin/DeleteUser")]
+        public IActionResult DeleteUser(string username)
+        {
+                using var connection = new NpgsqlConnection(_connectionString);
+                connection.Open();
+                string query = "DELETE FROM Users WHERE Username = @Username";
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@Username", username);
+                command.ExecuteNonQuery();
+                TempData["Message"] = "User removed successfully!";
+            return RedirectToAction("ManageUsers");
+        }
+
+        // Manage Users (with search functionality)
+        public IActionResult ManageUsers(string searchQuery)
+        {
+            var users = new List<User>();
+            using var connection = new NpgsqlConnection(_connectionString);
+            connection.Open();
+            // Adjusted query to handle search properly
+            string query = "SELECT * FROM Users WHERE Username LIKE @SearchQuery OR Email LIKE @SearchQuery";
+            using var command = new NpgsqlCommand(query, connection);
+            command.Parameters.AddWithValue("@SearchQuery", "%" + searchQuery + "%");
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var user = new User
+                {
+                    Username = reader.GetString(reader.GetOrdinal("Username")),
+                    // Add other user properties here, assuming you have them in your User class
+                    Email = reader.GetString(reader.GetOrdinal("Email")),
+                    // Add more properties if needed
+                };
+                users.Add(user);
+            }
+
+            return View(users); // Return to the ManageUsers view with the list of users
+        }
+        public IActionResult ManageBorrowing()
+        {
+            var borrowings = new List<BorrowingRecord>();
+
+            using var connection = new NpgsqlConnection(_connectionString);
+            connection.Open();
+
+            string query = @"
+        SELECT b.id AS BookId, b.title, u.username, br.borrowdate, br.returndate, 
+               CASE 
+                   WHEN NOW() > br.returndate THEN 'Overdue' 
+                   ELSE 'Active' 
+               END AS Status
+        FROM BorrowedBooks br
+        JOIN Books b ON br.bookid = b.id
+        JOIN Users u ON br.username = u.username";
+
+            using var command = new NpgsqlCommand(query, connection);
+            using var reader = command.ExecuteReader();
+
+            while (reader.Read())
+            {
+                borrowings.Add(new BorrowingRecord
+                {
+                    BookId = reader.GetInt32(0),
+                    Title = reader.GetString(1),
+                    Username = reader.GetString(2),
+                    BorrowDate = reader.GetDateTime(3),
+                    ReturnDate = reader.GetDateTime(4),
+                    Status = reader.GetString(5)
+                });
+            }
+
+            return View(borrowings);
+        }
+
+        
 
     }
 }

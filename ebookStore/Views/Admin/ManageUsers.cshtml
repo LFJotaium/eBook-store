@@ -1,0 +1,63 @@
+@model List<User> 
+<!-- This should match the type passed from the controller -->
+
+@{
+    ViewData["Title"] = "Manage Users";
+}
+
+<h1>@ViewData["Title"]</h1>
+
+<!-- Display Success Message -->
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-success">
+        @TempData["Message"]
+    </div>
+}
+
+<!-- Search Bar -->
+<form method="get" asp-action="ManageUsers">
+    <div class="form-group">
+        <label for="searchQuery">Search for Users:</label>
+        <input type="text" class="form-control" id="searchQuery" name="searchQuery" placeholder="Enter username or email" value="@Context.Request.Query["searchQuery"]" />
+    </div>
+    <button type="submit" class="btn btn-primary">Search</button>
+</form>
+
+<br />
+
+<!-- User Table -->
+<table class="table table-striped">
+    <thead>
+    <tr>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+    <tbody>
+    @if (Model != null && Model.Any())
+    {
+        foreach (var user in Model)
+        {
+            <tr>
+                <td>@user.Username</td>
+                <td>@user.Email</td>
+                <td>
+                    <!-- Delete User Button -->
+                    <form method="post" asp-action="DeleteUser" onsubmit="return confirm('Are you sure you want to delete this user?');">
+                        <input type="hidden" name="username" value="@user.Username" />
+                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    }
+    else
+    {
+        <tr>
+            <td colspan="3" class="text-center">No users found</td>
+        </tr>
+    }
+    </tbody>
+</table>

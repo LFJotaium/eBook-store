@@ -57,7 +57,7 @@ else
 
     <div class="d-flex justify-content-between align-items-center mt-4">
         <p>
-            <strong>Total: </strong> 
+            <strong>Total: </strong>
             @Model.Sum(item => item.Price * item.Quantity)
         </p>
         <a href="@Url.Action("Checkout", "Cart")" class="btn btn-primary">Proceed to Checkout</a>

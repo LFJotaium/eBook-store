@@ -21,6 +21,10 @@
         </div>
 
         <h2 class="text-center mb-4">Explore Our Collection</h2>
+        @if (TempData["Error"] != null)
+        {
+            <div class="alert alert-danger">@TempData["Error"]</div>
+        }
 
         <!-- Sorting Button to Trigger Modal -->
         <button id="sortButton" class="btn btn-secondary mb-4" data-bs-toggle="modal" data-bs-target="#filterModal">Sort By</button>
@@ -128,11 +132,11 @@
                         <div class="card-body d-flex flex-column">
                             <h5 class="card-title text-truncate">@book.Title</h5>
                             <p class="card-text mb-1"><strong>Author:</strong> @book.AuthorName</p>
+                            <p class="card-text mb-1"><strong>Publisher:</strong> @book.Publisher</p>
                             <p class="card-text mb-1"><strong>Genre:</strong> @book.Genre</p>
                             <p class="card-text mb-1"><strong>Year:</strong> @book.YearOfPublish</p>
                             <p class="card-text mb-1"><strong>Available:</strong> @book.CopiesAvailable</p>
                             <p class="card-text mb-1"><strong>Sold:</strong> @book.SoldCopies</p>
-                            <p class="card-text mb-1"><strong>Borrowed:</strong> @book.BorrowedCopies</p>
                             <p class="card-text mb-1"><strong>Age Limit:</strong> +@book.AgeLimit</p>
                             <!--condition to check if Discounted and strikethrough-->
                             <p class="card-text mb-1 text-primary"><strong>Buy:</strong> @if (book.Price?.IsDiscounted == true)
@@ -175,6 +179,7 @@
             }
         </div>
     </div>
+
 </section>
 
 <!-- Add the Bootstrap JS for modal functionality -->

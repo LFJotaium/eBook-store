@@ -1,56 +1,60 @@
-<form method="post" asp-controller="Checkout" asp-action="CreateOrder">
-    <script src="https://www.paypal.com/sdk/js?client-id=@(ViewBag.PaypalClientId)&currency=USD"></script>
+@{
+    ViewData["Title"] = "Checkout";
 
-    <div class="mx-auto p-4 rounded border shadow" style="width: 420px;">
-        <h2 class="text-center mb-5">Complete your order</h2>
-        <div class="form-group mb-3">
-            <label class="form-label">Total Amount ($)</label>
-            <input class="form-control"
-                   type="number"
-                   id="totalAmount"
-                   step="0.01"
-                   value="@ViewBag.TotalAmount"
-                   readonly />
-        </div>
-        <br />
-        <div id="notification-container"></div>
-        <div id="paypal-button-container"></div>
-    </div>
+    var paypalClientId = ViewBag.PaypalClientId;
 
+    var totalAmount = ViewBag.TotalAmount;
+}
+
+<h1>Checkout</h1>
+
+@if (totalAmount > 0)
+
+{
+    <p><strong>Total Amount: </strong>@totalAmount.ToString("C")</p>
+
+    <div id="paypal-button-container"></div>
+
+    <script src="https://www.paypal.com/sdk/js?client-id=@paypalClientId&currency=USD"></script>
     <script>
+        var totalAmount = @totalAmount; // Assigning totalAmount to a JavaScript variable
+
         paypal.Buttons({
-            async createOrder() {
-                const response = await fetch("@Url.ActionLink("CreateOrder", "Checkout")", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        amount: document.getElementById("totalAmount").value
-                    })
+            createOrder: function (data, actions) {
+                return actions.order.create({
+                    purchase_units: [{
+                        amount: {
+                            value: totalAmount.toFixed(2) // Use totalAmount in JavaScript
+                        }
+                    }]
                 });
-
-                const order = await response.json();
-                return order.id;
             },
-            onCancel(data) {
-                document.getElementById("notification-container").innerHTML = `
-                    <div class='alert alert-danger alert-dismissible fade show' role='alert'>
-                        <strong>Payment Canceled!</strong>
-                        <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
-                    </div>
-                `;
+            onApprove: function (data, actions) {
+                return actions.order.capture().then(function (details) {
+                    alert('Transaction completed by ' + details.payer.name.given_name);
+                    // After successful payment, call the controller to handle the payment
+                    $.ajax({
+                        type: 'POST',
+                        url: '@Url.Action("CompletePayment", "Cart")',
+                        data: {
+                            paypalOrderId: data.orderID,  // Use the correct parameter name
+                            totalAmount: totalAmount      // Pass the totalAmount here as a number
+                        },
+                        error: function () {
+                            alert('There was an issue processing your payment.');
+                        }
+                    });
+                });
             },
-            onError(err) {
-                console.error('PayPal error:', err); // Log error for debugging
-                document.getElementById("notification-container").innerHTML = `
-                    <div class='alert alert-danger alert-dismissible fade show' role='alert'>
-                        <strong>An error occurred while processing your payment. Please try again later.</strong>
-                        <button type='button' class='btn-close' data-bs-dismiss='alert' aria-label='Close'></button>
-                    </div>
-                `;
+            onCancel: function (data) {
+                alert('Transaction canceled');
             }
-
         }).render('#paypal-button-container');
     </script>
-</form>
+}
+
+else
+
+{
+    <p>No items in your cart. <a href="@Url.Action("ViewCart", "Cart")">Go back to the cart</a>.</p>
+}

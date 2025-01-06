@@ -51,7 +51,7 @@ public class BooksController : Controller
         return View(books.ToList());
     }
     // Borrow a book
-    public IActionResult Borrow(int id)
+    /*public IActionResult Borrow(int id)
     {
         var book = _context.Books.Find(id);
         if (book == null)
@@ -139,6 +139,6 @@ public class BooksController : Controller
             return RedirectToAction(nameof(Index));
         }
         return View(book);
-    }
+    }*/
 
 }

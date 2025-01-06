@@ -1,0 +1,36 @@
+@model IEnumerable<BorrowingRecord>
+
+<h1>Manage Borrowing</h1>
+
+<table class="table">
+    <thead>
+    <tr>
+        <th>Book ID</th>
+        <th>Title</th>
+        <th>Username</th>
+        <th>Borrow Date</th>
+        <th>Return Date</th>
+        <th>Status</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+    <tbody>
+    @foreach (var record in Model)
+    {
+        <tr>
+            <td>@record.BookId</td>
+            <td>@record.Title</td>
+            <td>@record.Username</td>
+            <td>@record.BorrowDate.ToString("yyyy-MM-dd")</td>
+            <td>@record.ReturnDate.ToString("yyyy-MM-dd")</td>
+            <td>@record.Status</td>
+            <td>
+                @if (record.Status == "Overdue")
+                {
+                    <a href="@Url.Action("SendReminder", "Admin", new { username = record.Username, bookId = record.BookId })" class="btn btn-warning">Send Reminder</a>
+                }
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
