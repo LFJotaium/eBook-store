@@ -120,18 +120,26 @@
                     </li>
 
                     @if (!string.IsNullOrEmpty(Context.Session.GetString("Username")))
-
                     {
-
                         var username = Context.Session.GetString("Username");
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="User" asp-action="Profile" asp-route-username="@username">Profile</a>
                         </li>
                     }
 
+                    <li class="nav-item">
+                        <a class="nav-link position-relative" href="@Url.Action("ViewCart", "Cart")">
+                            <i class="fas fa-shopping-cart"></i> Cart
+                            @if (ViewBag.CartCount != null && (int)ViewBag.CartCount > 0)
+                            {
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                    @ViewBag.CartCount
+                                </span>
+                            }
+                        </a>
+                    </li>
 
                     @if (Context.Session.GetString("Role") == "Admin")
-
                     {
                         <li class="nav-item">
                             <a class="nav-link text-dark" href="/Admin/ManageBooks">Admin</a>
@@ -153,6 +161,7 @@
         </div>
     </nav>
 </header>
+
 
 <div class="container">
     <main role="main" class="pb-3">

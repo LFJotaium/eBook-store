@@ -1,0 +1,65 @@
+@model List<ebookStore.Models.CartItemViewModel>
+<style>
+    .table th, .table td {
+        vertical-align: middle;
+    }
+    .badge {
+        font-size: 0.9em;
+    }
+    .btn-sm {
+        font-size: 0.8em;
+    }
+</style>
+@{
+    ViewData["Title"] = "Your Cart";
+}
+
+<h1>Your Cart</h1>
+
+@if (Model == null || !Model.Any())
+{
+    <p>Your cart is empty. <a href="@Url.Action("Index", "Home")">Continue browsing books</a>.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+        <tr>
+            <th>Title</th>
+            <th>Author</th>
+            <th>Action</th>
+            <th>Quantity</th>
+            <th>Price</th>
+            <th>Subtotal</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.Title</td>
+                <td>@item.AuthorName</td>
+                <td>@item.ActionType</td>
+                <td>@item.Quantity</td>
+                <td>@item.Price.ToString("C")</td>
+                <td>@(item.Price * item.Quantity)</td>
+                <td>
+                    <form method="post" action="@Url.Action("RemoveFromCart", "Cart")" style="display:inline;">
+                        <input type="hidden" name="bookId" value="@item.BookId" />
+                        <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+
+    <div class="d-flex justify-content-between align-items-center mt-4">
+        <p>
+            <strong>Total: </strong> 
+            @Model.Sum(item => item.Price * item.Quantity)
+        </p>
+        <a href="@Url.Action("Checkout", "Cart")" class="btn btn-primary">Proceed to Checkout</a>
+    </div>
+}

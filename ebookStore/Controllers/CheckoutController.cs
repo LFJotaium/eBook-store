@@ -2,33 +2,27 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
+using Npgsql;
 
 
 namespace ebookStore.Controllers;
 
 public class CheckoutController : Controller
 {
+    public string TotalAmount { get; set; } = null;
     private string PaypalClientId { get; set; } = "";
     private string PaypalSecret { get; set; } = "";
     private string PaypalUrl { get; set; } = "";
-
+    private readonly string _connectionString;
     public CheckoutController(IConfiguration configuration)
     {
         PaypalClientId = configuration["PaypalSettings:ClientId"]!;
         PaypalSecret = configuration["PaypalSettings:Secret"]!;
         PaypalUrl = configuration["PaypalSettings:Url"]!;
+        _connectionString = configuration.GetConnectionString("DefaultConnectionString");
  
     }
-    [HttpGet]
-    [Route("checkout")]
-    public IActionResult Checkout()
-    {
-        ViewBag.PaypalClientId = PaypalClientId;
-        Console.WriteLine("Checkout Page Loaded");
-        return View();
-    }
     
-
     [HttpPost]
     private async Task<string> GetPaypalAccessToken()
     {

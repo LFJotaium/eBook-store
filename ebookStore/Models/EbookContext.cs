@@ -13,7 +13,7 @@ public class EbookContext :DbContext
     public DbSet<PurchasedBook> PurchasedBooks { get; set; }
     public DbSet<Feedback> Feedbacks { get; set; }
     public DbSet<WaitingListEntry> WaitingListEntries { get; set; }
-
+    public DbSet<ShoppingCart> ShoppingCart { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>

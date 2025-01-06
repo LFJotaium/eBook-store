@@ -149,7 +149,7 @@
                                                                                    </span>
                                 }
                                 <span>@book.Price?.CurrentPriceBorrow.ToString("C")</span></p>
-                            @if (book.IsDiscounted)
+                            @if (book.Price.IsDiscounted)
                             {
                                 <p class="card-text mb-1"><strong>Discount Ends:</strong> @book.Price?.DiscountEndDate?.ToString("yyyy-MM-dd")</p>
                             }
@@ -162,6 +162,11 @@
                                 <form asp-action="BorrowBook" method="post">
                                     <input type="hidden" name="BookId" value="@book.ID" />
                                     <button type="submit" class="btn btn-primary w-100 mt-2">Borrow Now</button>
+                                </form>
+                                <!-- Buy Button -->
+                                <form asp-action="BuyBook" method="post">
+                                    <input type="hidden" name="BookId" value="@book.ID" />
+                                    <button type="submit" class="btn btn-success w-100 mt-2">Buy Now</button>
                                 </form>
                             </div>
                         </div>

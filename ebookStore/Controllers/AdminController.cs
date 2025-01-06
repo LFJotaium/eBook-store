@@ -24,19 +24,10 @@ namespace ebookStore.Controllers
         [HttpPost("Admin/AddBook")]
 public IActionResult AddBook(Book book)
 {
-    Console.WriteLine("before Model State");
-    /*if (!ModelState.IsValid)
-    {
-
-        return View(book);
-    }*/
-
     try
     {
-        Console.WriteLine("Try section");
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
-        Console.WriteLine("connected to db");
 
         string query = @"
             INSERT INTO Books (Title, AuthorName, Publisher, PriceBuy, PriceBorrowing, YearOfPublish, Genre, CoverImagePath)

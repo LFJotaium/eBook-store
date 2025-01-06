@@ -167,7 +167,82 @@ namespace ebookStore.Controllers
             return View(books);
         }
 
+        [HttpPost]
+        public IActionResult BuyBook(int bookId)
+        {
+            if (!IsUserLoggedIn())
+            {
+                return RedirectToAction("Login", "Account");
+            }
+            try
+            {
+                using var connection = new NpgsqlConnection(_connectionString);
+                connection.Open();
 
+                // Check if the book exists and if there are available copies
+                string checkBookQuery = "SELECT CopiesAvailable FROM Books WHERE ID = @BookId";
+                using var checkBookCommand = new NpgsqlCommand(checkBookQuery, connection);
+                checkBookCommand.Parameters.AddWithValue("@BookId", bookId);
+                int availableCopies = (int)checkBookCommand.ExecuteScalar();
+
+                if (availableCopies > 0)
+                {
+                    // Check if the user has already bought this book
+                    string checkUserPurchasedQuery = "SELECT COUNT(*) FROM PurchasedBooks WHERE BookId = @BookId AND Username = @Username";
+                    using var checkUserPurchasedCommand = new NpgsqlCommand(checkUserPurchasedQuery, connection);
+                    checkUserPurchasedCommand.Parameters.AddWithValue("@BookId", bookId);
+                    checkUserPurchasedCommand.Parameters.AddWithValue("@Username", HttpContext.Session.GetString("Username"));
+                    long booksAlreadyperchased = (long)checkUserPurchasedCommand.ExecuteScalar();
+
+                    if (booksAlreadyperchased > 0)
+                    {
+                        TempData["Error"] = "You have already purchased this book.";
+                    }
+                    else
+                    {
+                        // Update the book to reduce the available copies
+                        string updateBookQuery = "UPDATE Books SET CopiesAvailable = CopiesAvailable - 1 WHERE ID = @BookId";
+                        using var updateBookCommand = new NpgsqlCommand(updateBookQuery, connection);
+                        updateBookCommand.Parameters.AddWithValue("@BookId", bookId);
+                        updateBookCommand.ExecuteNonQuery();
+
+                        // Insert into BorrowedBooks
+                        string insertPurchasedQuery = @"
+                INSERT INTO Purchasedbooks (BookId, Username, PurchaseDate) 
+                VALUES (@BookId, @Username, @purchaseDate)";
+                        using var insertBorrowCommand = new NpgsqlCommand(insertPurchasedQuery, connection);
+                        insertBorrowCommand.Parameters.AddWithValue("@BookId", bookId);
+                        insertBorrowCommand.Parameters.AddWithValue("@Username", HttpContext.Session.GetString("Username"));
+                        insertBorrowCommand.Parameters.AddWithValue("@purchaseDate", DateTime.Now);
+                        insertBorrowCommand.ExecuteNonQuery();
+                        //inserting to cart to keep them in sync 
+                        string insertToCartQuery = @"INSERT INTO ShoppingCart (Username, BookId, Quantity, ActionType, CreatedAt)
+                        VALUES (@username, @bookId, '1', @ActionType, @createdAt);";
+                        using var AddToCartCommand = new NpgsqlCommand(insertToCartQuery, connection);
+                        AddToCartCommand.Parameters.AddWithValue("@Username", HttpContext.Session.GetString("Username"));
+                        AddToCartCommand.Parameters.AddWithValue("@BookId", bookId);
+                        AddToCartCommand.Parameters.AddWithValue("@Quantity", 1);
+                        AddToCartCommand.Parameters.AddWithValue("@ActionType", "Buy"); 
+                        AddToCartCommand.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
+                        AddToCartCommand.ExecuteNonQuery();
+                        TempData["Message"] = "Book successfully purchased!";
+                        
+                        }
+                    }
+                else
+                {
+                    TempData["Error"] = "No copies available for buying.";
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                TempData["Error"] = "An error occurred while buying the book.";
+            }
+
+            return RedirectToAction("Index");
+        }
+        // Borrowing books 
         [HttpPost]
         public IActionResult BorrowBook(int bookId)
         {
@@ -230,7 +305,16 @@ namespace ebookStore.Controllers
                             insertBorrowCommand.Parameters.AddWithValue("@BorrowDate", DateTime.Now);
                             insertBorrowCommand.Parameters.AddWithValue("@ReturnDate", DateTime.Now.AddDays(30));
                             insertBorrowCommand.ExecuteNonQuery();
-
+                            //inserting to cart to keep them in sync 
+                            string insertToCartQuery = @"INSERT INTO ShoppingCart (Username, BookId, Quantity, ActionType, CreatedAt)
+                        VALUES (@username, @bookId, '1', @ActionType, @createdAt);";
+                            using var AddToCartCommand = new NpgsqlCommand(insertToCartQuery, connection);
+                            AddToCartCommand.Parameters.AddWithValue("@Username", HttpContext.Session.GetString("Username"));
+                            AddToCartCommand.Parameters.AddWithValue("@BookId", bookId);
+                            AddToCartCommand.Parameters.AddWithValue("@Quantity", 1);
+                            AddToCartCommand.Parameters.AddWithValue("@ActionType", "Borrow"); 
+                            AddToCartCommand.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
+                            AddToCartCommand.ExecuteNonQuery();
                             TempData["Message"] = "Book successfully borrowed!";
                         }
                     }
