@@ -14,17 +14,3 @@ namespace ebookStore.Models
         public string ActionType { get; set; }
     }
 }
-
-
-/*
-CREATE TABLE ShoppingCart (
-       ID SERIAL PRIMARY KEY,
-       UserId VARCHAR(255) NOT NULL,  -- Updated to VARCHAR to match 'Users' table 'username'
-       BookId INT NOT NULL,  -- Stays the same to match 'Books' table 'id'
-       Quantity INT DEFAULT 1,
-       CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-       FOREIGN KEY (UserId) REFERENCES Users(username),  -- Reference 'username' in Users table
-       FOREIGN KEY (BookId) REFERENCES Books(id)  -- Reference 'id' in Books table
-   );
-
- */

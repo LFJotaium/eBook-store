@@ -1,25 +1,116 @@
-<form method="post" asp-controller="LogIn" asp-action="LogIn">
-    <label for="Email">Email</label>
-    <input type="email" id="Email" name="Email" required />
+<form method="post" asp-controller="LogIn" asp-action="LogIn" class="login-form">
+    <h2 class="form-title">Welcome Back!</h2>
+    <div class="form-group">
+        <label for="Email" class="form-label">Email</label>
+        <input type="email" id="Email" name="Email" class="form-control" required placeholder="Enter your email" />
+    </div>
 
-    <label for="Password">Password</label>
-    <input type="password" id="Password" name="Password" required />
+    <div class="form-group">
+        <label for="Password" class="form-label">Password</label>
+        <input type="password" id="Password" name="Password" class="form-control" required placeholder="Enter your password" />
+    </div>
 
-    <button type="submit" style="padding: 10px 20px; font-size: 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Log In</button>
+    <button type="submit" class="btn btn-primary w-100">Log In</button>
 
-    <!-- Display error message if there is one -->
     @if (ViewBag.ErrorMessage != null)
 
     {
-        <div style="color: red; margin-top: 10px;">
+        <div class="alert alert-danger mt-3" role="alert">
             @ViewBag.ErrorMessage
         </div>
     }
 
-    <!-- Register Button -->
-    <div style="text-align: center; margin-top: 20px;">
-        <a href="/Account/SignUp" style="font-size: 16px; color: #007bff; text-decoration: none; font-family: 'Arial', sans-serif; font-weight: 600;">
-            Or Register if you don't have an account
+    <div class="text-center mt-3">
+        <a href="/Account/SignUp" class="register-link">
+            Don't have an account? Register here
         </a>
     </div>
+    <div class="mt-4 text-center">
+        <p class="site-info">Discover a world of knowledge at your fingertips. Browse our extensive collection of eBooks and start reading today!</p>
+    </div>
 </form>
+
+<style>
+    .login-form {
+        max-width: 400px;
+        margin: 50px auto;
+        padding: 40px;
+        background: #fff; /* White background */
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1); /* Softer shadow */
+        animation: fadeIn 1s ease-out;
+        border: 1px solid #eee; /* Subtle border */
+    }
+
+    .form-title {
+        text-align: center;
+        margin-bottom: 30px;
+        color: #333;
+        font-weight: 600;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        font-size: 16px;
+        font-weight: 500; /* Slightly lighter font weight */
+        color: #555;
+        display: block; /* Ensures labels are above inputs */
+        margin-bottom: 5px;
+    }
+
+    .form-control {
+        padding: 12px;
+        font-size: 16px;
+        border-radius: 5px; /* Less rounded corners */
+        border: 1px solid #ddd; /* Lighter border */
+        transition: border-color 0.3s ease;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,.1); /* Subtle inner shadow */
+    }
+
+    .form-control:focus {
+        border-color: #007bff;
+        outline: none; /* Remove default outline */
+        box-shadow: 0 0 5px rgba(0, 123, 255, 0.2); /* Softer focus shadow */
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 12px;
+        font-size: 16px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        background-color: #0056b3;
+    }
+
+    .alert-danger {
+        margin-top: 10px;
+    }
+
+    .register-link {
+        font-size: 16px;
+        color: #007bff;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.3s ease;
+    }
+
+    .register-link:hover {
+        color: #0056b3;
+        text-decoration: underline; /* Add underline on hover */
+    }
+
+    .site-info {
+        font-size: 14px;
+        color: #777;
+        margin-top: 10px;
+    }
+</style>

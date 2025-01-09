@@ -1,3 +1,43 @@
+@if (ViewBag.Message != null)
+
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @ViewBag.Message
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<!-- Display ViewBag Errors -->
+@if (ViewBag.Error != null)
+
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @ViewBag.Error
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<!-- Display TempData Messages -->
+@if (TempData["Message"] != null)
+
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Message"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<!-- Display TempData Errors -->
+@if (TempData["Error"] != null)
+
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+
 @{
     ViewData["Title"] = "Checkout";
 
@@ -40,8 +80,14 @@
                             paypalOrderId: data.orderID,  // Use the correct parameter name
                             totalAmount: totalAmount      // Pass the totalAmount here as a number
                         },
+                        success: function () {
+                            // Redirect to the Home/Index page after successful payment
+                            window.location.href = '@Url.Action("Index", "Home")';
+                        },
                         error: function () {
                             alert('There was an issue processing your payment.');
+                            window.location.href = '@Url.Action("Index", "Home")';
+
                         }
                     });
                 });

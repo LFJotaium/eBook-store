@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Manage Waiting List</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Manage Waiting List</h1>
+
+        @if (TempData["Message"] != null)
+        {
+            <div class="alert alert-success">@TempData["Message"]</div>
+        }
+        @if (TempData["Error"] != null)
+        {
+            <div class="alert alert-danger">@TempData["Error"]</div>
+        }
+
+        <table class="table table-bordered table-hover">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Book Title</th>
+                    <th>Username</th>
+                    <th>Request Date</th>
+                    <th>Position in Queue</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.WaitingList.Count > 0)
+                {
+                    @foreach (var entry in Model.WaitingList)
+                    {
+                        <tr>
+                            <td>@entry.BookTitle</td>
+                            <td>@entry.Username</td>
+                            <td>@entry.RequestDate.ToString("yyyy-MM-dd")</td>
+                            <td>@entry.QueuePosition</td>
+                            <td>
+                                <form asp-action="RemoveFromWaitingList" asp-controller="Admin" method="post" class="d-inline">
+                                    <input type="hidden" name="waitingListId" value="@entry.Id" />
+                                    <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                                </form>
+                                <form asp-action="NotifyUser" asp-controller="Admin" method="post" class="d-inline">
+                                    <input type="hidden" name="username" value="@entry.Username" />
+                                    <input type="hidden" name="bookId" value="@entry.BookId" />
+                                    <button type="submit" class="btn btn-primary btn-sm">Notify</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="5" class="text-center">No entries in the waiting list.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <a href="/Admin" class="btn btn-secondary">Back to Admin Dashboard</a>
+    </div>
+
+    <script src="/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -12,85 +12,92 @@ namespace ebookStore.Controllers
         {
             _connectionString = configuration.GetConnectionString("DefaultConnectionString");
         }
-//----------------------Book Service------------------//
-        // Display the Add Book Form
+
         [HttpGet("Admin/AddBook")]
         public IActionResult AddBook()
         {
+            var username = HttpContext.Session.GetString("Username") ?? "test";
+            if (!IsUserAdmin(username))
+                return Unauthorized("You do not have permission to access this page.");
+
             return View(new Book());
         }
 
-   
         [HttpPost("Admin/AddBook")]
-public IActionResult AddBook(Book book)
-{
-    try
-    {
-        using var connection = new NpgsqlConnection(_connectionString);
-        connection.Open();
+        public IActionResult AddBook(Book book)
+        {
+            var username = HttpContext.Session.GetString("Username") ?? "test";
+            if (!IsUserAdmin(username))
+                return Unauthorized("You do not have permission to add books.");
 
-        string query = @"
-            INSERT INTO Books (Title, AuthorName, Publisher, PriceBuy, PriceBorrowing, YearOfPublish, Genre, CoverImagePath)
-            VALUES (@Title, @AuthorName, @Publisher, @PriceBuy, @PriceBorrowing, @YearOfPublish, @Genre, @CoverImagePath)
-            RETURNING ID;";
-        
-        using var command = new NpgsqlCommand(query, connection);
-        command.Parameters.AddWithValue("@Title", book.Title);
-        command.Parameters.AddWithValue("@AuthorName", book.AuthorName);
-        command.Parameters.AddWithValue("@Publisher", book.Publisher);
-        command.Parameters.AddWithValue("@PriceBuy", book.PriceBuy);
-        command.Parameters.AddWithValue("@PriceBorrowing", book.PriceBorrowing);
-        command.Parameters.AddWithValue("@YearOfPublish", book.YearOfPublish);
-        command.Parameters.AddWithValue("@Genre", book.Genre ?? (object)DBNull.Value);
-        command.Parameters.AddWithValue("@CoverImagePath", book.CoverImagePath ?? (object)DBNull.Value);
-        
-        int bookId = (int)command.ExecuteScalar();
-        Console.WriteLine("1st query");
-        // Insert into Prices table
-        string priceQuery = @"
-            INSERT INTO Prices (bookId, currentpricebuy, currentpriceborrow, originalpricebuy, originalpriceborrow, isdiscounted, discountenddate)
-            VALUES (@bookid, @CurrentPriceBuy, @CurrentPriceBorrow, @OriginalPriceBuy, @OriginalPriceBorrow, false, NULL);";
-        
-        using var priceCommand = new NpgsqlCommand(priceQuery, connection);
-        priceCommand.Parameters.AddWithValue("@bookid", bookId);
-        priceCommand.Parameters.AddWithValue("@CurrentPriceBuy", book.PriceBuy);
-        priceCommand.Parameters.AddWithValue("@CurrentPriceBorrow", book.PriceBorrowing);
-        priceCommand.Parameters.AddWithValue("@OriginalPriceBuy", book.PriceBuy);
-        priceCommand.Parameters.AddWithValue("@OriginalPriceBorrow", book.PriceBorrowing);
-        priceCommand.ExecuteNonQuery();
-        Console.WriteLine("2nd query");
-        TempData["Message"] = "Book added successfully!";
-        return RedirectToAction("AddBook");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Error: {ex.Message}");
-        ModelState.AddModelError("", "An error occurred while adding the book.");
-        return View(book);
-    }
-}
+            try
+            {
+                using var connection = new NpgsqlConnection(_connectionString);
+                connection.Open();
 
+                string query = @"
+                    INSERT INTO Books (Title, AuthorName, Publisher, PriceBuy, PriceBorrowing, YearOfPublish, Genre, CoverImagePath)
+                    VALUES (@Title, @AuthorName, @Publisher, @PriceBuy, @PriceBorrowing, @YearOfPublish, @Genre, @CoverImagePath)
+                    RETURNING ID;";
 
-      // Manage Books 
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@Title", book.Title);
+                command.Parameters.AddWithValue("@AuthorName", book.AuthorName);
+                command.Parameters.AddWithValue("@Publisher", book.Publisher);
+                command.Parameters.AddWithValue("@PriceBuy", book.PriceBuy);
+                command.Parameters.AddWithValue("@PriceBorrowing", book.PriceBorrowing);
+                command.Parameters.AddWithValue("@YearOfPublish", book.YearOfPublish);
+                command.Parameters.AddWithValue("@Genre", book.Genre ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@CoverImagePath", book.CoverImagePath ?? (object)DBNull.Value);
+
+                int bookId = (int)command.ExecuteScalar();
+
+                string priceQuery = @"
+                    INSERT INTO Prices (bookId, currentpricebuy, currentpriceborrow, originalpricebuy, originalpriceborrow, isdiscounted, discountenddate)
+                    VALUES (@bookid, @CurrentPriceBuy, @CurrentPriceBorrow, @OriginalPriceBuy, @OriginalPriceBorrow, false, NULL);";
+
+                using var priceCommand = new NpgsqlCommand(priceQuery, connection);
+                priceCommand.Parameters.AddWithValue("@bookid", bookId);
+                priceCommand.Parameters.AddWithValue("@CurrentPriceBuy", book.PriceBuy);
+                priceCommand.Parameters.AddWithValue("@CurrentPriceBorrow", book.PriceBorrowing);
+                priceCommand.Parameters.AddWithValue("@OriginalPriceBuy", book.PriceBuy);
+                priceCommand.Parameters.AddWithValue("@OriginalPriceBorrow", book.PriceBorrowing);
+                priceCommand.ExecuteNonQuery();
+
+                TempData["Message"] = "Book added successfully!";
+                return RedirectToAction("AddBook");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                ModelState.AddModelError("", "An error occurred while adding the book.");
+                return View(book);
+            }
+        }
+
         [HttpGet("Admin/ManageBooks")]
         public IActionResult ManageBooks(string searchQuery)
         {
+            var username = HttpContext.Session.GetString("Username") ?? "test";
+            if (!IsUserAdmin(username))
+                return Unauthorized("You do not have permission to access this page.");
+
             var books = new List<Book>();
 
             using var connection = new NpgsqlConnection(_connectionString);
             connection.Open();
-    
+
             string query = @"
-        SELECT b.ID, b.Title, b.AuthorName, b.Publisher, 
-               p.CurrentPriceBuy, p.CurrentPriceBorrow, 
-               p.OriginalPriceBuy, p.OriginalPriceBorrow, 
-               p.IsDiscounted, p.DiscountEndDate, 
-               b.YearOfPublish, b.Genre, b.CoverImagePath
-        FROM Books b
-        LEFT JOIN Prices p ON b.ID = p.BookID
-        WHERE b.Title ILIKE @SearchQuery OR b.AuthorName ILIKE @SearchQuery OR b.Publisher ILIKE @SearchQuery
-        ORDER BY b.Title";
-    
+                SELECT b.ID, b.Title, b.AuthorName, b.Publisher, 
+                       p.CurrentPriceBuy, p.CurrentPriceBorrow, 
+                       p.OriginalPriceBuy, p.OriginalPriceBorrow, 
+                       p.IsDiscounted, p.DiscountEndDate, 
+                       b.YearOfPublish, b.Genre, b.CoverImagePath
+                FROM Books b
+                LEFT JOIN Prices p ON b.ID = p.BookID
+                WHERE b.Title ILIKE @SearchQuery OR b.AuthorName ILIKE @SearchQuery OR b.Publisher ILIKE @SearchQuery
+                ORDER BY b.Title";
+
             using var command = new NpgsqlCommand(query, connection);
             command.Parameters.AddWithValue("@SearchQuery", "%" + searchQuery + "%");
 
@@ -121,11 +128,14 @@ public IActionResult AddBook(Book book)
 
             return View(books);
         }
-        
-        // Deleting books 
+
         [HttpPost("Admin/DeleteBook")]
         public IActionResult DeleteBook(int bookId)
         {
+            var username = HttpContext.Session.GetString("Username") ?? "test";
+            if (!IsUserAdmin(username))
+                return Unauthorized("You do not have permission to access this page.");
+
             using var connection = new NpgsqlConnection(_connectionString);
             connection.Open();
             string query = "DELETE FROM Books WHERE ID = @ID";
@@ -136,10 +146,14 @@ public IActionResult AddBook(Book book)
             TempData["Message"] = "Book deleted successfully!";
             return RedirectToAction("ManageBooks");
         }
-        // Edit Book - GET : to show selected book data in page fileds 
+
         [HttpGet("Admin/EditBook/{id}")]
         public IActionResult EditBook(int id)
         {
+            var username = HttpContext.Session.GetString("Username") ?? "test";
+            if (!IsUserAdmin(username))
+                return Unauthorized("You do not have permission to access this page.");
+
             Book book;
             using (var connection = new NpgsqlConnection(_connectionString))
             {
@@ -171,72 +185,79 @@ public IActionResult AddBook(Book book)
 
             return View(book);
         }
-        // Edit Book - POST also make sure to update the two tables with updated values 
-[HttpPost]
-public IActionResult EditBook(Book book)
-{
-    try
-    {
-        using (var connection = new NpgsqlConnection(_connectionString))
+
+        [HttpPost]
+        public IActionResult EditBook(Book book)
         {
-            connection.Open();
-            using (var transaction = connection.BeginTransaction())
+            var username = HttpContext.Session.GetString("Username") ?? "test";
+            if (!IsUserAdmin(username))
+                return Unauthorized("You do not have permission to access this page.");
+
+            try
             {
-                // Update the Books table
-                string updateBooksQuery = @"
-                UPDATE Books
-                SET Title = @Title, AuthorName = @AuthorName, Publisher = @Publisher, 
-                    PriceBuy = @PriceBuy, PriceBorrowing = @PriceBorrowing, 
-                    YearOfPublish = @YearOfPublish, Genre = @Genre, CoverImagePath = @CoverImagePath
-                WHERE ID = @ID";
-
-                using (var bookCommand = new NpgsqlCommand(updateBooksQuery, connection))
+                using (var connection = new NpgsqlConnection(_connectionString))
                 {
-                    bookCommand.Parameters.AddWithValue("@ID", book.ID);
-                    bookCommand.Parameters.AddWithValue("@Title", book.Title);
-                    bookCommand.Parameters.AddWithValue("@AuthorName", book.AuthorName);
-                    bookCommand.Parameters.AddWithValue("@Publisher", book.Publisher);
-                    bookCommand.Parameters.AddWithValue("@PriceBuy", book.PriceBuy);
-                    bookCommand.Parameters.AddWithValue("@PriceBorrowing", book.PriceBorrowing);
-                    bookCommand.Parameters.AddWithValue("@YearOfPublish", book.YearOfPublish);
-                    bookCommand.Parameters.AddWithValue("@Genre", book.Genre ?? (object)DBNull.Value);
-                    bookCommand.Parameters.AddWithValue("@CoverImagePath", book.CoverImagePath ?? (object)DBNull.Value);
+                    connection.Open();
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        string updateBooksQuery = @"
+                            UPDATE Books
+                            SET Title = @Title, AuthorName = @AuthorName, Publisher = @Publisher, 
+                                PriceBuy = @PriceBuy, PriceBorrowing = @PriceBorrowing, 
+                                YearOfPublish = @YearOfPublish, Genre = @Genre, CoverImagePath = @CoverImagePath
+                            WHERE ID = @ID";
 
-                    bookCommand.ExecuteNonQuery();
+                        using (var bookCommand = new NpgsqlCommand(updateBooksQuery, connection))
+                        {
+                            bookCommand.Parameters.AddWithValue("@ID", book.ID);
+                            bookCommand.Parameters.AddWithValue("@Title", book.Title);
+                            bookCommand.Parameters.AddWithValue("@AuthorName", book.AuthorName);
+                            bookCommand.Parameters.AddWithValue("@Publisher", book.Publisher);
+                            bookCommand.Parameters.AddWithValue("@PriceBuy", book.PriceBuy);
+                            bookCommand.Parameters.AddWithValue("@PriceBorrowing", book.PriceBorrowing);
+                            bookCommand.Parameters.AddWithValue("@YearOfPublish", book.YearOfPublish);
+                            bookCommand.Parameters.AddWithValue("@Genre", book.Genre ?? (object)DBNull.Value);
+                            bookCommand.Parameters.AddWithValue("@CoverImagePath", book.CoverImagePath ?? (object)DBNull.Value);
+
+                            bookCommand.ExecuteNonQuery();
+                        }
+
+                        string updatePricesQuery = @"
+                            UPDATE Prices
+                            SET CurrentPriceBuy = @CurrentPriceBuy, CurrentPriceBorrow = @CurrentPriceBorrow
+                            WHERE BookID = @BookID";
+
+                        using (var priceCommand = new NpgsqlCommand(updatePricesQuery, connection))
+                        {
+                            priceCommand.Parameters.AddWithValue("@BookID", book.ID);
+                            priceCommand.Parameters.AddWithValue("@CurrentPriceBuy", book.PriceBuy);
+                            priceCommand.Parameters.AddWithValue("@CurrentPriceBorrow", book.PriceBorrowing);
+
+                            priceCommand.ExecuteNonQuery();
+                        }
+
+                        transaction.Commit();
+                    }
                 }
 
-                // Update the Prices table
-                string updatePricesQuery = @"
-                UPDATE Prices
-                SET CurrentPriceBuy = @CurrentPriceBuy, CurrentPriceBorrow = @CurrentPriceBorrow
-                WHERE BookID = @BookID";
-
-                using (var priceCommand = new NpgsqlCommand(updatePricesQuery, connection))
-                {
-                    priceCommand.Parameters.AddWithValue("@BookID", book.ID);
-                    priceCommand.Parameters.AddWithValue("@CurrentPriceBuy", book.PriceBuy);
-                    priceCommand.Parameters.AddWithValue("@CurrentPriceBorrow", book.PriceBorrowing);
-
-                    priceCommand.ExecuteNonQuery();
-                }
-
-                transaction.Commit();
+                TempData["Message"] = "Book and prices updated successfully!";
+                return RedirectToAction("ManageBooks");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating book and prices: {ex.Message}");
+                TempData["Error"] = "An error occurred while updating the book and prices.";
+                return View(book);
             }
         }
-        TempData["Message"] = "Book and prices updated successfully!";
-        return RedirectToAction("ManageBooks");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Error updating book and prices: {ex.Message}");
-        TempData["Error"] = "An error occurred while updating the book and prices.";
-        return View(book);
-    }
-}
 
         [HttpPost("Admin/SetDiscount")]
         public IActionResult SetDiscount(int bookId, decimal discountedPriceBuy, decimal discountedPriceBorrow, DateTime discountEndDate)
         {
+            var username = HttpContext.Session.GetString("Username") ?? "test";
+            if (!IsUserAdmin(username))
+                return Unauthorized("You do not have permission to access this page.");
+
             try
             {
                 using var connection = new NpgsqlConnection(_connectionString);
@@ -253,93 +274,33 @@ public IActionResult EditBook(Book book)
                 command.ExecuteNonQuery();
                 transaction.Commit();
 
-                return RedirectToAction("ManageBooks"); // Redirect back to the Manage Books page
+                return RedirectToAction("ManageBooks");
             }
             catch (Exception ex)
             {
-                // Log or handle the exception
                 Console.WriteLine($"Failed to set discount: {ex.Message}");
-                return View("Error"); // You can render an error page
+                return View("Error");
             }
         }
-        //----------------------User Service------------------//
-        //Delete User
-        [HttpPost("Admin/DeleteUser")]
-        public IActionResult DeleteUser(string username)
+
+
+
+
+
+
+
+
+        private bool IsUserAdmin(string username)
         {
-                using var connection = new NpgsqlConnection(_connectionString);
-                connection.Open();
-                string query = "DELETE FROM Users WHERE Username = @Username";
-                using var command = new NpgsqlCommand(query, connection);
-                command.Parameters.AddWithValue("@Username", username);
-                command.ExecuteNonQuery();
-                TempData["Message"] = "User removed successfully!";
-            return RedirectToAction("ManageUsers");
-        }
-
-        // Manage Users (with search functionality)
-        public IActionResult ManageUsers(string searchQuery)
-        {
-            var users = new List<User>();
-            using var connection = new NpgsqlConnection(_connectionString);
-            connection.Open();
-            // Adjusted query to handle search properly
-            string query = "SELECT * FROM Users WHERE Username LIKE @SearchQuery OR Email LIKE @SearchQuery";
-            using var command = new NpgsqlCommand(query, connection);
-            command.Parameters.AddWithValue("@SearchQuery", "%" + searchQuery + "%");
-
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                var user = new User
-                {
-                    Username = reader.GetString(reader.GetOrdinal("Username")),
-                    // Add other user properties here, assuming you have them in your User class
-                    Email = reader.GetString(reader.GetOrdinal("Email")),
-                    // Add more properties if needed
-                };
-                users.Add(user);
-            }
-
-            return View(users); // Return to the ManageUsers view with the list of users
-        }
-        public IActionResult ManageBorrowing()
-        {
-            var borrowings = new List<BorrowingRecord>();
-
             using var connection = new NpgsqlConnection(_connectionString);
             connection.Open();
 
-            string query = @"
-        SELECT b.id AS BookId, b.title, u.username, br.borrowdate, br.returndate, 
-               CASE 
-                   WHEN NOW() > br.returndate THEN 'Overdue' 
-                   ELSE 'Active' 
-               END AS Status
-        FROM BorrowedBooks br
-        JOIN Books b ON br.bookid = b.id
-        JOIN Users u ON br.username = u.username";
-
+            string query = "SELECT Role FROM Users WHERE Username = @Username";
             using var command = new NpgsqlCommand(query, connection);
-            using var reader = command.ExecuteReader();
+            command.Parameters.Add(new NpgsqlParameter("@Username", NpgsqlTypes.NpgsqlDbType.Varchar) { Value = username });
 
-            while (reader.Read())
-            {
-                borrowings.Add(new BorrowingRecord
-                {
-                    BookId = reader.GetInt32(0),
-                    Title = reader.GetString(1),
-                    Username = reader.GetString(2),
-                    BorrowDate = reader.GetDateTime(3),
-                    ReturnDate = reader.GetDateTime(4),
-                    Status = reader.GetString(5)
-                });
-            }
-
-            return View(borrowings);
+            var role = command.ExecuteScalar()?.ToString();
+            return role == "Admin";
         }
-
-        
-
     }
 }

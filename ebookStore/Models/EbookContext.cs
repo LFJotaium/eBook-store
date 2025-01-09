@@ -12,7 +12,7 @@ public class EbookContext :DbContext
     public DbSet<BorrowedBook> BorrowedBooks { get; set; }
     public DbSet<PurchasedBook> PurchasedBooks { get; set; }
     public DbSet<Feedback> Feedbacks { get; set; }
-//public DbSet<WaitingListEntry> WaitingListEntries { get; set; }
+    public DbSet<WaitingListEntry> WaitingListEntries { get; set; }
     public DbSet<ShoppingCart> ShoppingCart { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +48,15 @@ public class EbookContext :DbContext
             entity.HasOne(f => f.User)
                 .WithMany()
                 .HasForeignKey(f => f.Username);
+        });
+        // WaitingListEntry entity configuration
+        modelBuilder.Entity<WaitingListEntry>(entity =>
+        {
+            entity.HasKey(wl => wl.Id);
+            entity.HasOne(wl => wl.Book)
+                .WithMany()
+                .HasForeignKey(wl => wl.BookId);
+            entity.Property(wl => wl.Username).IsRequired();
         });
     }
 

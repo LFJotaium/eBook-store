@@ -1,16 +1,14 @@
-using System.Net;
-using System.Net.Mail;
 using ebookStore.Models;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
+using System.Net.Mail;
+using System.Net;
 
-namespace ebookStore.Controllers;
-
-public class CartController: Controller
+public class CartController : Controller
 {
     private readonly string _connectionString;
     private readonly string _paypalClientId;
-    
+
     public CartController(EbookContext context, IConfiguration configuration)
     {
         _connectionString = configuration.GetConnectionString("DefaultConnectionString");
@@ -29,35 +27,68 @@ public class CartController: Controller
         }
 
         decimal totalAmount = 0;
+        string action = "";
 
         using (var connection = new NpgsqlConnection(_connectionString))
         {
             connection.Open();
             string query = @"
-            SELECT SUM(
-                CASE WHEN sc.ActionType = 'Buy' THEN b.PriceBuy 
-                     ELSE b.PriceBorrowing 
-                END * sc.Quantity
-            ) AS TotalAmount
-            FROM ShoppingCart sc
-            JOIN Books b ON sc.BookId = b.ID
-            WHERE sc.Username = @username";
+                SELECT SUM(
+                    CASE WHEN sc.ActionType = 'Buy' THEN b.PriceBuy 
+                         ELSE b.PriceBorrowing 
+                    END * sc.Quantity
+                ) AS TotalAmount,
+                sc.ActionType
+                FROM ShoppingCart sc
+                JOIN Books b ON sc.BookId = b.ID
+                WHERE sc.Username = @username
+                GROUP BY sc.ActionType";
 
             using (var command = new NpgsqlCommand(query, connection))
             {
                 command.Parameters.AddWithValue("@username", username);
-                var result = command.ExecuteScalar();
-                if (result != DBNull.Value && result != null)
+                using (var reader = command.ExecuteReader())
                 {
-                    totalAmount = Convert.ToDecimal(result);
+                    if (reader.Read())
+                    {
+                        totalAmount = reader.IsDBNull(reader.GetOrdinal("TotalAmount")) ? 0 : reader.GetDecimal(reader.GetOrdinal("TotalAmount"));
+                        action = reader.IsDBNull(reader.GetOrdinal("ActionType")) ? "buy" : reader.GetString(reader.GetOrdinal("ActionType"));
+                    }
                 }
             }
         }
+
         ViewBag.TotalAmount = totalAmount;
-        Console.WriteLine("Checkout Page Loaded with Total Amount: $" + totalAmount);
+        ViewBag.Action = action;
+
         return View();
     }
-    
+    /*
+    public IActionResult AddToCart(int bookId)
+    {
+        // Retrieve the user ID from the session or authentication context
+        var userId = GetUserId();
+
+        if (userId == null)
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        string insertUserCartQuery = @"INSERT INTO ShoppingCart (Username, BookId, Quantity, ActionType, CreatedAt)
+                                           VALUES (@Username, @BookId, 1, @ActionType, @CreatedAt)";
+        using var insertUserCartCommand = new NpgsqlCommand(insertUserCartQuery, connection, transaction);
+        insertUserCartCommand.Parameters.AddWithValue("@Username", username);
+        insertUserCartCommand.Parameters.AddWithValue("@BookId", bookId);
+        insertUserCartCommand.Parameters.AddWithValue("@ActionType", "Borrow");
+        insertUserCartCommand.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
+        await insertUserCartCommand.ExecuteNonQueryAsync();
+
+        // Optionally, display a success message
+        TempData["Message"] = $"{book.Title} has been added to your cart.";
+
+        // Redirect back to the eBook gallery or the current page
+        return RedirectToAction("Gallery", "Books");
+    }*/
     [HttpGet]
     [Route("cart/ViewCart")]
     public IActionResult ViewCart()
@@ -74,17 +105,15 @@ public class CartController: Controller
         {
             connection.Open();
             string query = @"
-    SELECT sc.BookId, b.Title, b.AuthorName, sc.Quantity, 
-           CASE 
-               WHEN sc.ActionType = 'Buy' THEN p.currentpricebuy 
-               ELSE p.currentpriceborrow 
-           END AS Price, 
-           sc.ActionType
-    FROM ShoppingCart sc
-    JOIN Books b ON sc.BookId = b.ID
-    JOIN Prices p ON b.ID = p.bookid
-    WHERE sc.Username = @username";
-
+                SELECT sc.BookId, b.Title, b.AuthorName, sc.Quantity, 
+                       CASE WHEN sc.ActionType = 'Buy' THEN p.currentpricebuy 
+                            ELSE p.currentpriceborrow 
+                       END AS Price, 
+                       sc.ActionType
+                FROM ShoppingCart sc
+                JOIN Books b ON sc.BookId = b.ID
+                JOIN Prices p ON b.ID = p.bookid
+                WHERE sc.Username = @username";
 
             using (var command = new NpgsqlCommand(query, connection))
             {
@@ -109,45 +138,159 @@ public class CartController: Controller
 
         return View(cartItems);
     }
+
     [HttpPost]
     [Route("Cart/Remove")]
-    public IActionResult RemoveFromCart(int bookId, string actionType)
+    public async Task<IActionResult> RemoveFromCartAsync(int bookId, string actionType)
     {
         string username = HttpContext.Session.GetString("Username");
         if (string.IsNullOrEmpty(username))
         {
+            ViewBag.Error = "Username not found in session. Please log in.";
             return RedirectToAction("Login", "Account");
         }
 
-        using (var connection = new NpgsqlConnection(_connectionString))
+        try
         {
-            connection.Open();
-
-            // delete from PurchasedBooks or BorrowedBooks table based on the actionType
-            string deleteQuery = actionType == "Buy"
-                ? "DELETE FROM PurchasedBooks WHERE BookId = @bookId AND Username = @username"
-                : "DELETE FROM BorrowedBooks WHERE BookId = @bookId AND Username = @username";
-
-            using (var command = new NpgsqlCommand(deleteQuery, connection))
+            using (var connection = new NpgsqlConnection(_connectionString))
             {
-                command.Parameters.AddWithValue("@bookId", bookId);
-                command.Parameters.AddWithValue("@username", username);
-                command.ExecuteNonQuery();
-            }
+                connection.Open();
 
-            // Delete from ShoppingCart table
-            string deleteFromCartQuery = "DELETE FROM ShoppingCart WHERE BookId = @bookId AND Username = @username";
+                // Step 1: Delete from PurchasedBooks or BorrowedBooks
+                string deleteQuery = actionType == "Buy"
+                    ? "DELETE FROM PurchasedBooks WHERE BookId = @bookId AND Username = @username"
+                    : "DELETE FROM BorrowedBooks WHERE BookId = @bookId AND Username = @username";
 
-            using (var command = new NpgsqlCommand(deleteFromCartQuery, connection))
-            {
-                command.Parameters.AddWithValue("@bookId", bookId);
-                command.Parameters.AddWithValue("@username", username);
-                command.ExecuteNonQuery();
+                using (var command = new NpgsqlCommand(deleteQuery, connection))
+                {
+                    command.Parameters.AddWithValue("@bookId", bookId);
+                    command.Parameters.AddWithValue("@username", username);
+                    command.ExecuteNonQuery();
+                }
+
+                // Step 2: Delete from ShoppingCart
+                string deleteFromCartQuery = "DELETE FROM ShoppingCart WHERE BookId = @bookId AND Username = @username";
+                using (var command = new NpgsqlCommand(deleteFromCartQuery, connection))
+                {
+                    command.Parameters.AddWithValue("@bookId", bookId);
+                    command.Parameters.AddWithValue("@username", username);
+                    command.ExecuteNonQuery();
+                }
+
+                // Step 3: Handle specific logic for "Borrow"
+                if (actionType == "Borrow")
+                {
+                    string incrementCopiesQuery = "UPDATE Books SET CopiesAvailable = CopiesAvailable + 1 WHERE ID = @bookId";
+                    using (var command = new NpgsqlCommand(incrementCopiesQuery, connection))
+                    {
+                        command.Parameters.AddWithValue("@bookId", bookId);
+                        command.ExecuteNonQuery();
+                    }
+
+                    // Step 4: Notify the first user in the waiting list
+                    string getFirstWaitingUserQuery = "SELECT Email, Username FROM WaitingList WHERE BookId = @bookId ORDER BY CreatedAt ASC LIMIT 1";
+                    string firstWaitingUserEmail = null;
+                    string firstWaitingUserUsername = null;
+
+                    using (var command = new NpgsqlCommand(getFirstWaitingUserQuery, connection))
+                    {
+                        command.Parameters.AddWithValue("@bookId", bookId);
+                        using (var reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                firstWaitingUserEmail = reader.GetString(0);
+                                firstWaitingUserUsername = reader.GetString(1);
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(firstWaitingUserEmail))
+                    {
+                        await SendEmailForAvailableBook(firstWaitingUserEmail, bookId);
+
+                        string addToCartQuery = "INSERT INTO ShoppingCart (BookId, Username, ActionType) VALUES (@bookId, @username, @actionType)";
+                        using (var command = new NpgsqlCommand(addToCartQuery, connection))
+                        {
+                            command.Parameters.AddWithValue("@bookId", bookId);
+                            command.Parameters.AddWithValue("@username", firstWaitingUserUsername);
+                            command.Parameters.AddWithValue("@actionType", "Borrow");
+                            command.ExecuteNonQuery();
+                        }
+
+                        string removeFromWaitingListQuery = "DELETE FROM WaitingList WHERE BookId = @bookId AND Username = @username";
+                        using (var command = new NpgsqlCommand(removeFromWaitingListQuery, connection))
+                        {
+                            command.Parameters.AddWithValue("@bookId", bookId);
+                            command.Parameters.AddWithValue("@username", firstWaitingUserUsername);
+                            command.ExecuteNonQuery();
+                        }
+
+                        string decreaseCopiesQuery = "UPDATE Books SET CopiesAvailable = CopiesAvailable - 1 WHERE ID = @bookId";
+                        using (var command = new NpgsqlCommand(decreaseCopiesQuery, connection))
+                        {
+                            command.Parameters.AddWithValue("@bookId", bookId);
+                            command.ExecuteNonQuery();
+                        }
+
+                        ViewBag.Message = $"Book successfully removed from cart. The next user in the waiting list ({firstWaitingUserUsername}) has been notified.";
+                    }
+                    else
+                    {
+                        ViewBag.Message = "Book successfully removed from cart. No users were waiting for the book.";
+                    }
+                }
+                else
+                {
+                    ViewBag.Message = "Book removed from cart successfully.";
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            ViewBag.Error = "An error occurred while removing the book from the cart.";
         }
 
         return RedirectToAction("ViewCart");
     }
+
+    public async Task SendEmailForAvailableBook(string username, int bookId)
+    {
+        string fromMail = "malikabushah@gmail.com";
+        string fromPassword = "eaqa ixie haib nkjw";
+
+        string body = "<html><body><h2>Book Availability Notification</h2><p>Dear " + username + ",</p><p>The book you were waiting for is now available for borrowing and it has been added to your cart. " +
+                      "You are the first to be notified. Please log in to your account and borrow the book as soon as possible., you have 30 days to pay for the borrow, otherwise we would have to take the book from your cart.</p>" +
+                      "<p>Book ID: " + bookId + "</p>" +
+                      "<p>If you have any questions, feel free to contact us.</p><p>Best regards,<br>Your Ebook Store Team</p></body></html>";
+
+        MailMessage message = new MailMessage
+        {
+            From = new MailAddress(fromMail),
+            Subject = "Book Available for Borrowing!",
+            Body = body,
+            IsBodyHtml = true
+        };
+
+        message.To.Add(new MailAddress(username));
+
+        var smtpClient = new SmtpClient("smtp.gmail.com")
+        {
+            Port = 587,
+            Credentials = new NetworkCredential(fromMail, fromPassword),
+            EnableSsl = true
+        };
+
+        try
+        {
+            await smtpClient.SendMailAsync(message);
+        }
+        catch (Exception ex)
+        {
+            ViewBag.Error = "Error sending email notification.";
+        }
+    }
+
     [HttpPost]
     [Route("cart/CompletePayment")]
     public async Task<IActionResult> CompletePayment(string paypalOrderId, decimal totalAmount)
@@ -170,12 +313,12 @@ public class CartController: Controller
                     {
                         // Retrieve cart items
                         string selectCartItemsQuery = @"
-                        SELECT sc.BookId, sc.Quantity, 
-                               CASE WHEN sc.ActionType = 'Buy' THEN b.PriceBuy ELSE b.PriceBorrowing END AS Price,
-                               sc.ActionType
-                        FROM ShoppingCart sc
-                        JOIN Books b ON sc.BookId = b.ID
-                        WHERE sc.Username = @Username";
+                            SELECT sc.BookId, sc.Quantity, 
+                                   CASE WHEN sc.ActionType = 'Buy' THEN b.PriceBuy ELSE b.PriceBorrowing END AS Price,
+                                   sc.ActionType
+                            FROM ShoppingCart sc
+                            JOIN Books b ON sc.BookId = b.ID
+                            WHERE sc.Username = @Username";
 
                         List<(int bookId, int quantity, decimal price, string actionType)> cartItems = new List<(int, int, decimal, string)>();
 
@@ -195,20 +338,17 @@ public class CartController: Controller
                             }
                         }
 
-                    await SendEmail(userEmail, cartItems, "purchase"); // You can change the action type as needed (buy/borrow)
+                        await SendEmail(userEmail, cartItems, "purchase");
 
-                        // Process each cart item
                         foreach (var item in cartItems)
                         {
                             if (item.actionType == "Buy")
                             {
                                 await InsertPurchaseRecord(item, connection, transaction, username, paypalOrderId);
-                                await UpdateBookCopies(item, connection, transaction);
                             }
                             else if (item.actionType == "Borrow")
                             {
                                 await InsertBorrowRecord(item, connection, transaction, username, paypalOrderId);
-                                await UpdateBookCopies(item, connection, transaction);
                             }
 
                             // Remove from ShoppingCart
@@ -218,25 +358,25 @@ public class CartController: Controller
                         // Commit transaction
                         await transaction.CommitAsync();
 
-
-                        // Redirect to success page
+                        ViewBag.Message = "Payment completed successfully. Thank you for your purchase!";
                         return RedirectToAction("Index", "Home");
                     }
                     catch (Exception ex)
                     {
                         await transaction.RollbackAsync();
-                        return Json(new { success = false, message = "An error occurred during the payment process." });
+                        ViewBag.Error = "An error occurred during the payment process.";
+                        return RedirectToAction("ViewCart");
                     }
                 }
             }
         }
         catch (Exception ex)
         {
-            return Json(new { success = false, message = "An unexpected error occurred during the payment process." });
+            ViewBag.Error = "An unexpected error occurred during the payment process.";
+            return RedirectToAction("ViewCart");
         }
     }
 
-    // Helper methods for inserting records and updating books
     private async Task InsertPurchaseRecord((int bookId, int quantity, decimal price, string actionType) item, NpgsqlConnection connection, NpgsqlTransaction transaction, string username, string paypalOrderId)
     {
         string insertPurchasedQuery = @"
@@ -270,20 +410,6 @@ public class CartController: Controller
         }
     }
 
-    private async Task UpdateBookCopies((int bookId, int quantity, decimal price, string actionType) item, NpgsqlConnection connection, NpgsqlTransaction transaction)
-    {
-        string updateBookQuery = @"
-            UPDATE Books SET CopiesAvailable = CopiesAvailable - @Quantity WHERE ID = @BookId";
-
-        using (var command = new NpgsqlCommand(updateBookQuery, connection, transaction))
-        {
-            command.Parameters.AddWithValue("@Quantity", item.quantity);
-            command.Parameters.AddWithValue("@BookId", item.bookId);
-            await command.ExecuteNonQueryAsync();
-            
-        }
-    }
-
     private async Task DeleteFromCart(int bookId, string username, NpgsqlConnection connection, NpgsqlTransaction transaction)
     {
         string deleteFromCartQuery = @"
@@ -300,9 +426,8 @@ public class CartController: Controller
     private async Task SendEmail(string username, List<(int bookId, int quantity, decimal price, string actionType)> cartItems, string action)
     {
         string fromMail = "malikabushah@gmail.com";
-        string fromPassword = "nsyx tbov ttyq khch"; // Use an app-specific password if 2FA is enabled
+        string fromPassword = "vsjm dvly keqg ymzl";
 
-        // Create a dynamic email body based on the action
         string body = "<html><body><h2>Your " + action + " Confirmation</h2><p>Dear " + username + ",</p><p>Thank you for your " + action + " order. Here are the details:</p><ul>";
 
         foreach (var item in cartItems)
@@ -320,7 +445,7 @@ public class CartController: Controller
             IsBodyHtml = true
         };
 
-        message.To.Add(new MailAddress(username));  // Send email to the user's email address
+        message.To.Add(new MailAddress(username));
 
         var smtpClient = new SmtpClient("smtp.gmail.com")
         {
@@ -335,21 +460,15 @@ public class CartController: Controller
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error sending email: {ex.Message}");
+            ViewBag.Error = "Error sending confirmation email.";
         }
     }
-
-
 
     [HttpGet]
     [Route("cart/PaymentSuccess")]
     public async Task<IActionResult> PaymentSuccessAsync()
     {
+        ViewBag.Message = "Payment completed successfully. Thank you for your purchase!";
         return View();
     }
-
-
-
-
-
 }

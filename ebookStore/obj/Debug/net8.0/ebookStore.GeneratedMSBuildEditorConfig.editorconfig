@@ -46,6 +46,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3MvQWRtaW4vTWFuYWdlVXNlcnMuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
+[/Users/firasabusada/Desktop/SW/שנה ג /מבוא לתקשורת מחשבים/project/ebookStore/ebookStore/Views/Admin/WaitingList.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3MvQWRtaW4vV2FpdGluZ0xpc3QuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
 [/Users/firasabusada/Desktop/SW/שנה ג /מבוא לתקשורת מחשבים/project/ebookStore/ebookStore/Views/Cart/Checkout.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3MvQ2FydC9DaGVja291dC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
@@ -56,6 +60,14 @@ build_metadata.AdditionalFiles.CssScope =
 
 [/Users/firasabusada/Desktop/SW/שנה ג /מבוא לתקשורת מחשבים/project/ebookStore/ebookStore/Views/Cart/ViewCart.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3MvQ2FydC9WaWV3Q2FydC5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/firasabusada/Desktop/SW/שנה ג /מבוא לתקשורת מחשבים/project/ebookStore/ebookStore/Views/Checkout/CompletePurchase.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3MvQ2hlY2tvdXQvQ29tcGxldGVQdXJjaGFzZS5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[/Users/firasabusada/Desktop/SW/שנה ג /מבוא לתקשורת מחשבים/project/ebookStore/ebookStore/Views/Home/BookProfile.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3MvSG9tZS9Cb29rUHJvZmlsZS5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
 [/Users/firasabusada/Desktop/SW/שנה ג /מבוא לתקשורת מחשבים/project/ebookStore/ebookStore/Views/Home/Index.cshtml]

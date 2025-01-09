@@ -14,6 +14,46 @@
     ViewData["Title"] = "Your Cart";
 }
 
+@if (ViewBag.Message != null)
+
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @ViewBag.Message
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<!-- Display ViewBag Errors -->
+@if (ViewBag.Error != null)
+
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @ViewBag.Error
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<!-- Display TempData Messages -->
+@if (TempData["Message"] != null)
+
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["Message"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+<!-- Display TempData Errors -->
+@if (TempData["Error"] != null)
+
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
+
+
 <h1>Your Cart</h1>
 
 @if (Model == null || !Model.Any())
@@ -44,12 +84,14 @@ else
                 <td>@item.Quantity</td>
                 <td>@item.Price.ToString("C")</td>
                 <td>@(item.Price * item.Quantity)</td>
-                <td>
-                    <form method="post" action="@Url.Action("RemoveFromCart", "Cart")" style="display:inline;">
-                        <input type="hidden" name="bookId" value="@item.BookId" />
-                        <button type="submit" class="btn btn-danger btn-sm">Remove</button>
-                    </form>
-                </td>
+                    <td>
+                        <form method="post" action="@Url.Action("RemoveFromCart", "Cart")" style="display:inline;">
+                            <input type="hidden" name="bookId" value="@item.BookId" />
+                            <input type="hidden" name="actionType" value="@item.ActionType" /> <!-- Send ActionType -->
+                            <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                        </form>
+                    </td>
+
             </tr>
         }
         </tbody>
@@ -57,7 +99,7 @@ else
 
     <div class="d-flex justify-content-between align-items-center mt-4">
         <p>
-            <strong>Total: </strong>
+            <strong>Total: </strong> 
             @Model.Sum(item => item.Price * item.Quantity)
         </p>
         <a href="@Url.Action("Checkout", "Cart")" class="btn btn-primary">Proceed to Checkout</a>
