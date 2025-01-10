@@ -282,14 +282,7 @@ namespace ebookStore.Controllers
                 return View("Error");
             }
         }
-
-
-
-
-
-
-
-
+        
         private bool IsUserAdmin(string username)
         {
             using var connection = new NpgsqlConnection(_connectionString);
@@ -301,6 +294,44 @@ namespace ebookStore.Controllers
 
             var role = command.ExecuteScalar()?.ToString();
             return role == "Admin";
+        }
+        //----------------------User Service------------------//
+        //Delete User
+        [HttpPost("Admin/DeleteUser")]
+        public IActionResult DeleteUser(string username)
+        {
+                using var connection = new NpgsqlConnection(_connectionString);
+                connection.Open();
+                string query = "DELETE FROM Users WHERE Username = @Username";
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@Username", username);
+                command.ExecuteNonQuery();
+                TempData["Message"] = "User removed successfully!";
+            return RedirectToAction("ManageUsers");
+        }
+        // Manage Users with search functionality
+        public IActionResult ManageUsers(string searchQuery)
+        {
+            var users = new List<User>();
+            using var connection = new NpgsqlConnection(_connectionString);
+            connection.Open();
+            // Adjusted query to handle search properly
+            string query = "SELECT * FROM Users WHERE Username LIKE @SearchQuery OR Email LIKE @SearchQuery";
+            using var command = new NpgsqlCommand(query, connection);
+            command.Parameters.AddWithValue("@SearchQuery", "%" + searchQuery + "%");
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var user = new User
+                {
+                    Username = reader.GetString(reader.GetOrdinal("Username")),
+                    // Add other user properties here, assuming you have them in your User class
+                    Email = reader.GetString(reader.GetOrdinal("Email")),
+                    // Add more properties if needed
+                };
+                users.Add(user);
+            }
+            return View(users); // Return to the ManageUsers view with the list of users
         }
     }
 }

@@ -1,3 +1,4 @@
+@model IEnumerable<ebookStore.Models.Book>
 @if (ViewBag.Message != null)
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -156,14 +157,13 @@
             {
 
                 var feedbacks = book.Feedbacks as IEnumerable<Feedback>;
-
                 var averageRating = feedbacks != null && feedbacks.Any() ? feedbacks.Average(f => f.Rating) : 0;
                 <div class="col-md-3">
                     <div class="card h-100 shadow-lg border-0 rounded-3 hover-shadow-lg transition duration-300">
                         <img src="@book.CoverImagePath" class="card-img-top rounded-top" alt="@book.Title" style="height: 300px; object-fit: cover;">
                         <div class="card-body d-flex flex-column">
                             <h5 class="card-title text-truncate text-primary">
-                                <a href="@Url.Action("BookProfile", "Home", new { id = book.ID })">@book.Title</a>
+                                <a href="@Url.Action("BookProfile", "Home", new { Id = book.ID })">@book.Title</a>
                             </h5>
                             <p class="card-text mb-1"><strong>Author:</strong> @book.AuthorName</p>
                             <p class="card-text mb-1"><strong>Publisher:</strong> @book.Publisher</p>
@@ -172,10 +172,6 @@
                             <p class="card-text mb-1"><strong>Available:</strong> @book.CopiesAvailable</p>
                             <p class="card-text mb-1"><strong>Sold:</strong> @book.SoldCopies</p>
                             <p class="card-text mb-1"><strong>Age Limit:</strong> +@book.AgeLimit</p>
-                            <form asp-action="AddToCart" asp-controller="ShoppingCart" method="post">
-                                <input type="hidden" name="bookId" value="@book.Id" />
-                                <button type="submit" class="btn btn-primary">Add to Cart</button>
-                            </form>
                             <p class="card-text mb-1 text-primary">
                                 <strong>Buy:</strong>
                                 @if (book.Price?.IsDiscounted == true)
@@ -230,7 +226,11 @@
                                 </form>
                                 <form asp-action="BuyBook" method="post">
                                     <input type="hidden" name="BookId" value="@book.ID" />
-                                    <button type="submit" class="btn btn-success w-100 mt-2 shadow-sm">Add to Buy Cart Now</button>
+                                    <button type="submit" class="btn btn-success w-45 mt-2 shadow-sm">Buy</button>
+                                </form>
+                                <form asp-action="AddToCart" asp-controller="ShoppingCart" method="post">
+                                    <input type="hidden" name="bookId" value="@book.ID" />
+                                    <button type="submit" class="btn btn-primary">Add to Cart</button>
                                 </form>
                             </div>
                         </div>
