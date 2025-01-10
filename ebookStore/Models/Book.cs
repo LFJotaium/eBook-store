@@ -25,8 +25,8 @@ public class Book
     public int CopiesAvailable { get; set; }
     public int SoldCopies { get; set; }
     public int BorrowedCopies {  get; set; }
-    //public bool IsDiscounted { get; set; }
     public int AgeLimit { get; set; }
+    public string DrivePathFiles {get;set;}
     public virtual ICollection<BookFeedback> Feedbacks { get; set; } = new List<BookFeedback>();
     public class BookFeedback
     {

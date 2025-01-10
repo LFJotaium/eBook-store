@@ -38,8 +38,7 @@ namespace ebookStore.Controllers
                 return RedirectToAction("Login", "Account"); // Redirect to login page if not logged in
             }
 
-            // Fetch session data here
-            var username = HttpContext.Session.GetString("Username") ?? "Guest";
+            Dictionary<int, decimal> bookRatings = new Dictionary<int, decimal>(); var username = HttpContext.Session.GetString("Username") ?? "Guest";
             var firstName = HttpContext.Session.GetString("FirstName") ?? "";
             var lastName = HttpContext.Session.GetString("LastName") ?? "";
             var email = HttpContext.Session.GetString("Email") ?? "";
@@ -64,41 +63,46 @@ namespace ebookStore.Controllers
                     }
                 }
 
-                // Start with the base query
                 string query = @"
-            SELECT b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopies, b.AgeLimit,
-                   p.CurrentPriceBuy, p.CurrentPriceBorrow, 
-                   p.OriginalPriceBuy, p.OriginalPriceBorrow, 
-                   p.IsDiscounted, p.DiscountEndDate, 
-                   b.YearOfPublish, b.Genre, b.CoverImagePath
-            FROM Books b
-            LEFT JOIN Prices p ON b.ID = p.BookID
-            WHERE 1=1";
+SELECT b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopies, b.AgeLimit,
+       p.CurrentPriceBuy, p.CurrentPriceBorrow, 
+       p.OriginalPriceBuy, p.OriginalPriceBorrow, 
+       p.IsDiscounted, p.DiscountEndDate, 
+       b.YearOfPublish, b.Genre, b.CoverImagePath,
+       COALESCE(AVG(bf.Rating), 0) AS AverageRating
+FROM Books b
+LEFT JOIN Prices p ON b.ID = p.BookID
+LEFT JOIN BookFeedback bf ON b.ID = bf.BookId
+WHERE 1=1"; // Initialize WHERE clause with a true condition
 
                 // Apply filters dynamically
-                if (!string.IsNullOrEmpty(titleFilter)) query += " AND Title ILIKE @TitleFilter";
-                if (!string.IsNullOrEmpty(authorFilter)) query += " AND AuthorName ILIKE @AuthorFilter";
-                if (!string.IsNullOrEmpty(genreFilter)) query += " AND Genre = @Genre";
-                if (minPrice.HasValue) query += " AND PriceBuy >= @MinPrice";
-                if (maxPrice.HasValue) query += " AND PriceBuy <= @MaxPrice";
+                if (!string.IsNullOrEmpty(titleFilter)) query += " AND b.Title ILIKE @TitleFilter";
+                if (!string.IsNullOrEmpty(authorFilter)) query += " AND b.AuthorName ILIKE @AuthorFilter";
+                if (!string.IsNullOrEmpty(genreFilter)) query += " AND b.Genre = @Genre";
+                if (minPrice.HasValue) query += " AND p.CurrentPriceBuy >= @MinPrice";
+                if (maxPrice.HasValue) query += " AND p.CurrentPriceBuy <= @MaxPrice";
 
-                // Filter for discounted books
                 if (showDiscounted == true)
                 {
                     query += " AND p.IsDiscounted = TRUE AND p.DiscountEndDate >= CURRENT_DATE";
                 }
 
+                // Group by all non-aggregated columns
+                query += @"
+GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopies, b.AgeLimit,
+         p.CurrentPriceBuy, p.CurrentPriceBorrow, p.OriginalPriceBuy, p.OriginalPriceBorrow, 
+         p.IsDiscounted, p.DiscountEndDate, b.YearOfPublish, b.Genre, b.CoverImagePath";
+
                 // Apply sorting
                 query += sortOrder switch
                 {
-                    "price_asc" => " ORDER BY PriceBuy ASC",
-                    "price_desc" => " ORDER BY PriceBuy DESC",
-                    "year_asc" => " ORDER BY YearOfPublish ASC",
-                    "year_desc" => " ORDER BY YearOfPublish DESC",
-                    "popularity" => " ORDER BY SoldCopies DESC",
-                    _ => " ORDER BY Title ASC"
+                    "price_asc" => " ORDER BY p.CurrentPriceBuy ASC",
+                    "price_desc" => " ORDER BY p.CurrentPriceBuy DESC",
+                    "year_asc" => " ORDER BY b.YearOfPublish ASC",
+                    "year_desc" => " ORDER BY b.YearOfPublish DESC",
+                    "popularity" => " ORDER BY b.SoldCopies DESC",
+                    _ => " ORDER BY b.Title ASC" // Default sorting
                 };
-
                 using var command = new NpgsqlCommand(query, connection);
 
                 // Add parameters
@@ -110,7 +114,6 @@ namespace ebookStore.Controllers
 
                 using var reader = command.ExecuteReader();
 
-                // Populate books list
                 while (reader.Read())
                 {
                     var book = new Book
@@ -136,6 +139,9 @@ namespace ebookStore.Controllers
                         CoverImagePath = reader.GetString(15)
                     };
                     books.Add(book);
+
+                    decimal averageRating = reader.GetDecimal(16);
+                    bookRatings[book.ID] = averageRating;
                 }
             }
             catch (Exception ex)
@@ -172,7 +178,7 @@ namespace ebookStore.Controllers
             {
                 TempData["Error"] = $"Error: {ex.Message}";
             }
-
+            ViewBag.BookRatings = bookRatings;
             ViewData["FeedbackList"] = feedbackList;
             ViewData["Username"] = username;
             ViewData["AllGenres"] = allGenres;
@@ -183,75 +189,67 @@ namespace ebookStore.Controllers
         }
 
         [HttpPost]
-        public IActionResult BuyBook(int bookId)
+        public async Task<IActionResult> BuyBookDirectly(int bookId)
         {
             if (!IsUserLoggedIn())
             {
                 return RedirectToAction("Login", "Account");
             }
 
+            string username = HttpContext.Session.GetString("Username");
+
             try
             {
-                using var connection = new NpgsqlConnection(_connectionString);
-                connection.Open();
-
-                // Check if the book is already in the cart
-                string checkBookInCartQuery = "SELECT COUNT(*) FROM ShoppingCart WHERE BookId = @BookId AND Username = @Username";
-                using var checkBookInCartCommand = new NpgsqlCommand(checkBookInCartQuery, connection);
-                checkBookInCartCommand.Parameters.AddWithValue("@BookId", bookId);
-                checkBookInCartCommand.Parameters.AddWithValue("@Username", HttpContext.Session.GetString("Username"));
-                long bookInCart = (long)checkBookInCartCommand.ExecuteScalar();
-
-                if (bookInCart > 0)
+                using (var connection = new NpgsqlConnection(_connectionString))
                 {
-                    TempData["Error"] = "This book is already in your cart.";
-                }
-                else
-                {
+                    await connection.OpenAsync();
+
                     // Check if the user has already bought the book
-                    string checkUserBoughtQuery = "SELECT COUNT(*) FROM PurchasedBooks WHERE BookId = @BookId AND Username = @Username";
-                    using var checkUserBoughtCommand = new NpgsqlCommand(checkUserBoughtQuery, connection);
-                    checkUserBoughtCommand.Parameters.AddWithValue("@BookId", bookId);
-                    checkUserBoughtCommand.Parameters.AddWithValue("@Username", HttpContext.Session.GetString("Username"));
-                    long booksAlreadyBought = (long)checkUserBoughtCommand.ExecuteScalar();
-
-                    if (booksAlreadyBought > 0)
+                    string checkUserBoughtQuery = @"
+                SELECT COUNT(*) 
+                FROM PurchasedBooks 
+                WHERE BookId = @BookId AND Username = @Username";
+                    using (var checkUserBoughtCommand = new NpgsqlCommand(checkUserBoughtQuery, connection))
                     {
-                        TempData["Error"] = "You have already bought this book.";
-                    }
-                    else
-                    {
-                        // Check if the book exists and if there are available copies
-                        string checkBookQuery = "SELECT CopiesAvailable FROM Books WHERE ID = @BookId";
-                        using var checkBookCommand = new NpgsqlCommand(checkBookQuery, connection);
-                        checkBookCommand.Parameters.AddWithValue("@BookId", bookId);
-                        int availableCopies = (int)checkBookCommand.ExecuteScalar();
+                        checkUserBoughtCommand.Parameters.AddWithValue("@BookId", bookId);
+                        checkUserBoughtCommand.Parameters.AddWithValue("@Username", username);
+                        long booksAlreadyBought = (long)await checkUserBoughtCommand.ExecuteScalarAsync();
 
-                        // Insert into Cart (Before Payment)
-                        string insertToCartQuery = @"INSERT INTO ShoppingCart (Username, BookId, Quantity, ActionType, CreatedAt)
-                                                 VALUES (@Username, @BookId, '1', @ActionType, @CreatedAt);";
-                        using var addToCartCommand = new NpgsqlCommand(insertToCartQuery, connection);
-                        addToCartCommand.Parameters.AddWithValue("@Username", HttpContext.Session.GetString("Username"));
-                        addToCartCommand.Parameters.AddWithValue("@BookId", bookId);
-                        addToCartCommand.Parameters.AddWithValue("@ActionType", "Buy");
-                        addToCartCommand.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
-                        addToCartCommand.ExecuteNonQuery();
-
-                        TempData["Message"] = "Book added to cart. Please proceed to checkout!";
+                        if (booksAlreadyBought > 0)
+                        {
+                            TempData["Error"] = "You have already bought this book.";
+                            return RedirectToAction("Index", "Home");
+                        }
                     }
 
+                    // Fetch the book price
+                    string getPriceQuery = @"
+                SELECT currentpricebuy 
+                FROM Prices 
+                WHERE bookid = @BookId";
+                    using (var getPriceCommand = new NpgsqlCommand(getPriceQuery, connection))
+                    {
+                        getPriceCommand.Parameters.AddWithValue("@BookId", bookId);
+                        decimal price = (decimal)await getPriceCommand.ExecuteScalarAsync();
 
+                        // Pass the required variables to the DirectCheckout view
+                        ViewBag.PaypalClientId = "AVUpkuHdTvwNd9BBm_r3O1e1REZX1O0AsngCwreFyRjKpohV-i__JKzmiAch1nvR4VWDckZ4xlInNZR3";
+                        ViewBag.TotalAmount = price;
+                        ViewBag.BookId = bookId;
+
+                        // Explicitly specify the view path
+                        return View("~/Views/Cart/DirectCheckout.cshtml");
+                    }
                 }
             }
             catch (Exception ex)
             {
-                TempData["Error"] = "An error occurred while adding the book to the cart.";
+                TempData["Error"] = "An error occurred while fetching the book details.";
+                return RedirectToAction("Index", "Home");
             }
-
-            return RedirectToAction("Index");
         }
         [HttpPost]
-        public async Task<IActionResult> BorrowBook(int bookId)
+        public async Task<IActionResult> AddToBorrowCart(int bookId)
         {
             if (!IsUserLoggedIn())
             {
@@ -442,7 +440,67 @@ namespace ebookStore.Controllers
             }
         }
 
-        public IActionResult BookProfile(int id)
+		[HttpPost]
+		public IActionResult AddToBuyCart(int bookId)
+		{
+			if (!IsUserLoggedIn())
+			{
+				return RedirectToAction("Login", "Account");
+			}
+
+			try
+			{
+				using var connection = new NpgsqlConnection(_connectionString);
+				connection.Open();
+
+				string checkBookInCartQuery = "SELECT COUNT(*) FROM ShoppingCart WHERE BookId = @BookId AND Username = @Username";
+				using var checkBookInCartCommand = new NpgsqlCommand(checkBookInCartQuery, connection);
+				checkBookInCartCommand.Parameters.AddWithValue("@BookId", bookId);
+				checkBookInCartCommand.Parameters.AddWithValue("@Username", HttpContext.Session.GetString("Username"));
+				long bookInCart = (long)checkBookInCartCommand.ExecuteScalar();
+
+				if (bookInCart > 0)
+				{
+					TempData["Error"] = "This book is already in your cart.";
+				}
+				else
+				{
+					string checkUserBoughtQuery = "SELECT COUNT(*) FROM PurchasedBooks WHERE BookId = @BookId AND Username = @Username";
+					using var checkUserBoughtCommand = new NpgsqlCommand(checkUserBoughtQuery, connection);
+					checkUserBoughtCommand.Parameters.AddWithValue("@BookId", bookId);
+					checkUserBoughtCommand.Parameters.AddWithValue("@Username", HttpContext.Session.GetString("Username"));
+					long booksAlreadyBought = (long)checkUserBoughtCommand.ExecuteScalar();
+
+					if (booksAlreadyBought > 0)
+					{
+						TempData["Error"] = "You have already bought this book.";
+					}
+					else
+					{
+						// Insert into Cart (Before Payment)
+						string insertToCartQuery = @"
+                    INSERT INTO ShoppingCart (Username, BookId, Quantity, ActionType, CreatedAt)
+                    VALUES (@Username, @BookId, '1', @ActionType, @CreatedAt);";
+						using var addToCartCommand = new NpgsqlCommand(insertToCartQuery, connection);
+						addToCartCommand.Parameters.AddWithValue("@Username", HttpContext.Session.GetString("Username"));
+						addToCartCommand.Parameters.AddWithValue("@BookId", bookId);
+						addToCartCommand.Parameters.AddWithValue("@ActionType", "Buy");
+						addToCartCommand.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
+						addToCartCommand.ExecuteNonQuery();
+
+						TempData["Message"] = "Book added to cart. Please proceed to checkout!";
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				TempData["Error"] = "An error occurred while adding the book to the cart.";
+			}
+
+			return RedirectToAction("Index");
+		}
+
+		public IActionResult BookProfile(int id)
         {
             if (!IsUserLoggedIn())
             {
@@ -630,6 +688,10 @@ namespace ebookStore.Controllers
             }
         }
 
+
+
+
+
         private async Task<bool> CheckUserPurchaseOrBorrowedBookAsync(NpgsqlConnection connection, string username, int bookId)
         {
             // Check in the PurchasedBooks table
@@ -756,6 +818,82 @@ namespace ebookStore.Controllers
             }
 
             return RedirectToAction("Index");
+        }
+
+
+
+        public async Task InsertPurchaseRecord((int bookId, int quantity, decimal price, string actionType) item, NpgsqlConnection connection, NpgsqlTransaction transaction, string username, string paypalOrderId)
+        {
+            string insertPurchasedQuery = @"
+            INSERT INTO PurchasedBooks (BookId, Username, PurchaseDate, PaypalOrderId)
+            VALUES (@BookId, @Username, @PurchaseDate, @PaypalOrderId)";
+
+            using (var command = new NpgsqlCommand(insertPurchasedQuery, connection, transaction))
+            {
+                command.Parameters.AddWithValue("@BookId", item.bookId);
+                command.Parameters.AddWithValue("@Username", username);
+                command.Parameters.AddWithValue("@PurchaseDate", DateTime.Now);
+                command.Parameters.AddWithValue("@PaypalOrderId", paypalOrderId);
+                await command.ExecuteNonQueryAsync();
+            }
+        }
+
+        public async Task InsertBorrowRecord((int bookId, int quantity, decimal price, string actionType) item, NpgsqlConnection connection, NpgsqlTransaction transaction, string username, string paypalOrderId)
+        {
+            string insertBorrowedQuery = @"
+            INSERT INTO BorrowedBooks (BookId, Username, BorrowDate, ReturnDate, PaypalOrderId)
+            VALUES (@BookId, @Username, @BorrowDate, @ReturnDate, @PaypalOrderId)";
+
+            using (var command = new NpgsqlCommand(insertBorrowedQuery, connection, transaction))
+            {
+                command.Parameters.AddWithValue("@BookId", item.bookId);
+                command.Parameters.AddWithValue("@Username", username);
+                command.Parameters.AddWithValue("@BorrowDate", DateTime.Now);
+                command.Parameters.AddWithValue("@ReturnDate", DateTime.Now.AddDays(30));
+                command.Parameters.AddWithValue("@PaypalOrderId", paypalOrderId);
+                await command.ExecuteNonQueryAsync();
+            }
+        }
+
+        private async Task SendEmail(string username, List<(int bookId, int quantity, decimal price, string actionType)> cartItems, string action)
+        {
+            string fromMail = "malikabushah@gmail.com";
+            string fromPassword = "vsjm dvly keqg ymzl";
+
+            string body = "<html><body><h2>Your " + action + " Confirmation</h2><p>Dear " + username + ",</p><p>Thank you for your " + action + " order. Here are the details:</p><ul>";
+
+            foreach (var item in cartItems)
+            {
+                body += $"<li>{item.quantity} x {item.actionType} of Book ID: {item.bookId} at ${item.price} each.</li>";
+            }
+
+            body += "</ul><p>If you have any questions, feel free to contact us.</p><p>Best regards,<br>Ebook Store Team</p></body></html>";
+
+            MailMessage message = new MailMessage
+            {
+                From = new MailAddress(fromMail),
+                Subject = action + " Confirmation",
+                Body = body,
+                IsBodyHtml = true
+            };
+
+            message.To.Add(new MailAddress(username));
+
+            var smtpClient = new SmtpClient("smtp.gmail.com")
+            {
+                Port = 587,
+                Credentials = new NetworkCredential(fromMail, fromPassword),
+                EnableSsl = true
+            };
+
+            try
+            {
+                await smtpClient.SendMailAsync(message);
+            }
+            catch (Exception ex)
+            {
+                ViewBag.Error = "Error sending confirmation email.";
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
+using ebookStore.BackgroundServices;
 using ebookStore.Models;
 using ebookStore.Services; // For DbContext class
 using Microsoft.EntityFrameworkCore;  // For Entity Framework Core
@@ -21,7 +22,20 @@ builder.Services.AddDbContext<EbookContext>(options =>
         .EnableSensitiveDataLogging() // Enable detailed logging
         .LogTo(Console.WriteLine, LogLevel.Information));   // Uses connection string from appsettings.json
 
-    
+
+
+builder.Services.AddTransient<CartCleanupService>();
+builder.Services.AddHostedService<CartCleanupHostedService>();
+
+
+builder.Services.AddHostedService<BorrowedBooksCleanupHostedService>();
+builder.Services.AddTransient<BorrowedBooksCleanupService>();
+
+
+builder.Services.AddHostedService<DiscountCleanupHostedService>();
+builder.Services.AddTransient<DiscountCleanupService>();
+
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

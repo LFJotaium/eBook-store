@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using ebookStore.Models;
-using Microsoft.EntityFrameworkCore;
-using System.Linq;
 using ebookStore.Models.ViewModels;
 using Npgsql;
 using System.Net.Mail;
@@ -19,12 +17,27 @@ public class UserController : Controller
 
     }
 
+
+    private bool IsUserLoggedIn(string username,string currentUsername)
+    {
+        return !string.IsNullOrEmpty(HttpContext.Session.GetString("Username")) && currentUsername == username ;
+    }
     public async Task<IActionResult> Profile(string username)
     {
+
+
+        var currentUsername = HttpContext.Session.GetString("Username");
+
+        if (!IsUserLoggedIn(username, currentUsername))
+        {
+            return RedirectToAction("Index", "Home"); 
+        }
+
         if (string.IsNullOrEmpty(username))
         {
             return BadRequest("Username is required.");
         }
+
 
         // Fetch session data
         var sessionUsername = HttpContext.Session.GetString("Username") ?? "Guest";
@@ -126,7 +139,7 @@ public class UserController : Controller
                     waitingList.Add(new
                     {
                         BookId = reader.GetInt32(reader.GetOrdinal("BookId")),
-                        Title = reader.GetString(reader.GetOrdinal("Title")),
+                        //Title = reader.GetString(reader.GetOrdinal("Title")),
                         Author = reader.GetString(reader.GetOrdinal("AuthorName")),
                         AddedOn = reader.GetDateTime(reader.GetOrdinal("CreatedAt"))
                     });
@@ -270,6 +283,41 @@ public class UserController : Controller
             Console.WriteLine($"Error: {ex.Message}");
             TempData["Error"] = $"Error: {ex.Message}";
             return Json(new { success = false, message = ex.Message });
+        }
+    }
+
+
+    public IActionResult DownloadBook(int bookId)
+    {
+
+
+        try
+        {
+            using var connection = new NpgsqlConnection(_connectionString);
+            connection.Open();
+
+            string query = @"
+            SELECT Files
+            FROM Books
+            WHERE ID = @BookId";
+
+            using var command = new NpgsqlCommand(query, connection);
+            command.Parameters.AddWithValue("@BookId", bookId);
+
+            var filesLink = command.ExecuteScalar() as string;
+
+            if (string.IsNullOrEmpty(filesLink))
+            {
+                TempData["Error"] = "Download link not found.";
+                return RedirectToAction("Index"); 
+            }
+
+            return Redirect(filesLink);
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = $"Error: {ex.Message}";
+            return RedirectToAction("Index"); // Redirect to the index page on error
         }
     }
 

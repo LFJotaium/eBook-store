@@ -1,4 +1,4 @@
-@model IEnumerable<BorrowingRecord>
+@model IEnumerable<BorrowedBook>
 
 <h1>Manage Borrowing</h1>
 
@@ -24,12 +24,6 @@
             <td>@record.BorrowDate.ToString("yyyy-MM-dd")</td>
             <td>@record.ReturnDate.ToString("yyyy-MM-dd")</td>
             <td>@record.Status</td>
-            <td>
-                @if (record.Status == "Overdue")
-                {
-                    <a href="@Url.Action("SendReminder", "Admin", new { username = record.Username, bookId = record.BookId })" class="btn btn-warning">Send Reminder</a>
-                }
-            </td>
         </tr>
     }
     </tbody>

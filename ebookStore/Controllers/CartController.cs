@@ -377,7 +377,75 @@ public class CartController : Controller
         }
     }
 
-    private async Task InsertPurchaseRecord((int bookId, int quantity, decimal price, string actionType) item, NpgsqlConnection connection, NpgsqlTransaction transaction, string username, string paypalOrderId)
+
+    [HttpPost]
+    public async Task<IActionResult> CompleteDirectPayment(int bookId, string paypalOrderId, decimal totalAmount)
+    {
+        string username = HttpContext.Session.GetString("Username");
+        string userEmail = HttpContext.Session.GetString("Email");
+
+        if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(userEmail))
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        try
+        {
+            using (var connection = new NpgsqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+                using (var transaction = await connection.BeginTransactionAsync())
+                {
+                    try
+                    {
+                        // Check if the user has already bought the book
+                        string checkUserBoughtQuery = @"
+                        SELECT COUNT(*) 
+                        FROM PurchasedBooks 
+                        WHERE BookId = @BookId AND Username = @Username";
+
+                        using (var checkUserBoughtCommand = new NpgsqlCommand(checkUserBoughtQuery, connection, transaction))
+                        {
+                            checkUserBoughtCommand.Parameters.AddWithValue("@BookId", bookId);
+                            checkUserBoughtCommand.Parameters.AddWithValue("@Username", username);
+                            long booksAlreadyBought = (long)await checkUserBoughtCommand.ExecuteScalarAsync();
+
+                            if (booksAlreadyBought > 0)
+                            {
+                                TempData["Error"] = "You have already bought this book.";
+                                return RedirectToAction("Index", "Home");
+                            }
+                        }
+
+                        // Insert the purchase record
+                        await InsertPurchaseRecord((bookId, 1, totalAmount, "Buy"), connection, transaction, username, paypalOrderId);
+
+                        // Send email confirmation
+                        await SendEmail(userEmail, new List<(int, int, decimal, string)> { (bookId, 1, totalAmount, "Buy") }, "purchase");
+
+                        // Commit transaction
+                        await transaction.CommitAsync();
+
+                        TempData["Message"] = "Book purchased successfully. Thank you for your purchase!";
+                        return RedirectToAction("Index", "Home");
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        TempData["Error"] = "An error occurred during the payment process.";
+                        return RedirectToAction("Index", "Home");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = "An unexpected error occurred during the payment process.";
+            return RedirectToAction("Index", "Home");
+        }
+    }
+
+    public async Task InsertPurchaseRecord((int bookId, int quantity, decimal price, string actionType) item, NpgsqlConnection connection, NpgsqlTransaction transaction, string username, string paypalOrderId)
     {
         string insertPurchasedQuery = @"
             INSERT INTO PurchasedBooks (BookId, Username, PurchaseDate, PaypalOrderId)
@@ -393,7 +461,7 @@ public class CartController : Controller
         }
     }
 
-    private async Task InsertBorrowRecord((int bookId, int quantity, decimal price, string actionType) item, NpgsqlConnection connection, NpgsqlTransaction transaction, string username, string paypalOrderId)
+    public async Task InsertBorrowRecord((int bookId, int quantity, decimal price, string actionType) item, NpgsqlConnection connection, NpgsqlTransaction transaction, string username, string paypalOrderId)
     {
         string insertBorrowedQuery = @"
             INSERT INTO BorrowedBooks (BookId, Username, BorrowDate, ReturnDate, PaypalOrderId)

@@ -1,5 +1,5 @@
-@if (ViewBag.Message != null)
 
+@if (ViewBag.Message != null)
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
         @ViewBag.Message
@@ -87,6 +87,9 @@
                                 <a href="@Url.Action("BookProfile", "Home", new { id = book.BookId })"
                                    class="btn btn-primary w-100">View Book Profile</a>
                             </div>
+                            <!-- Download Button for Borrowed Books -->
+                            <a href="@Url.Action("DownloadBook", "User", new { bookId = book.BookId })"
+                               class="btn btn-success w-100 mt-2">Download</a>
                             <button class="btn btn-danger w-100 mt-2" onclick="unborrowBook(@book.BookId)">Unborrow</button>
                         </div>
                     </div>
@@ -122,6 +125,9 @@
                                 <a href="@Url.Action("BookProfile", "Home", new { id = book.BookId })"
                                    class="btn btn-primary w-100">View Book Profile</a>
                             </div>
+                            <!-- Download Button for Purchased Books -->
+                            <a href="@Url.Action("DownloadBook", "User", new { bookId = book.BookId })"
+                               class="btn btn-success w-100 mt-2">Download</a>
                             <button class="btn btn-danger w-100 mt-2" onclick="deletePurchasedBook(@book.BookId)">Delete</button>
                         </div>
                     </div>

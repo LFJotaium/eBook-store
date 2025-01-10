@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ebookStore")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4f3596235a4176f11629d3d6ce52f6960aef8dff")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+352c5243671ddf70aa6686bd4b14c03798075eae")]
 [assembly: System.Reflection.AssemblyProductAttribute("ebookStore")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ebookStore")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

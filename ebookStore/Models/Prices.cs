@@ -9,6 +9,5 @@ public class Price
     public decimal OriginalPriceBorrow { get; set; }
     public bool IsDiscounted { get; set; }
     public DateTime? DiscountEndDate { get; set; }
-    
-    //public Book Book { get; set; }
+
 }

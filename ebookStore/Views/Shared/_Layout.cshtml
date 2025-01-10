@@ -125,9 +125,9 @@
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Gallery</a>
                             </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="User" asp-action="Profile" asp-route-username="@username">Profile</a>
-                        </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="User" asp-action="Profile" asp-route-username="@username">Profile</a>
+                            </li>
                             <li class="nav-item">
                                 <a class="nav-link position-relative" href="@Url.Action("ViewCart", "Cart")">
                                     <i class="fas fa-shopping-cart"></i> Cart
@@ -153,9 +153,10 @@
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
                                 <li><a class="dropdown-item" href="@Url.Action("AddBook", "Admin")">Add Book</a></li>
+                                
                                 <li><a class="dropdown-item" href="@Url.Action("ManageBooks", "Admin")">Manage Books</a></li>
                                 <li><a class="dropdown-item" href="@Url.Action("ManageUsers", "Admin")">Manage Users</a></li>
-                                <li><a class="dropdown-item" href="@Url.Action("ManageBorrowing", "Admin")">Manage Borrowing</a></li>
+                                <li><a class="dropdown-item" href="@Url.Action("ManageWaitingList", "Admin")">Manage WaitingList</a></li>
                             </ul>
                         </li>
                     }

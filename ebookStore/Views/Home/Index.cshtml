@@ -56,7 +56,12 @@
         </div>
 
 
-
+        <!-- Display Book Count -->
+        <div class="row mb-4">
+            <div class="col text-center">
+                <h3 class="text-black fw-bold fs-4">Total Books Available: @Model.Count()</h3>
+            </div>
+        </div>
         <!-- Sorting Button to Trigger Modal -->
         <button id="sortButton" class="btn btn-secondary mb-4 shadow-sm px-4 py-2" data-bs-toggle="modal" data-bs-target="#filterModal">
             <i class="fas fa-sort me-2"></i>Sort By
@@ -204,33 +209,24 @@
 
                             <p class="card-text mb-2">
                                 <strong>Rating:</strong>
-                                <span class="text-warning">@string.Format("{0:0.0}", averageRating)</span>/5
+                                <span class="text-warning">@string.Format("{0:0.0}", @ViewBag.BookRatings[book.ID])</span>/5
                             </p>
 
                             <div class="mt-auto">
-                                <form asp-action="BorrowBook" method="post">
-                                    @if (book.CopiesAvailable > 0)
-                                    {
-                                        <form asp-action="BorrowBook" asp-controller="Home" method="post">
-                                            <input type="hidden" name="bookId" value="@book.ID" />
-                                            <button type="submit" class="btn btn-primary">Borrow</button>
-                                        </form>
-                                    }
-                                    else
-                                    {
-                                        <form asp-action="AddToWaitingList" asp-controller="Home" method="post">
-                                            <input type="hidden" name="bookId" value="@book.ID" />
-                                            <button type="submit" class="btn btn-warning">Enter Borrowing Waiting List</button>
-                                        </form>
-                                    }
-                                </form>
-                                <form asp-action="BuyBook" method="post">
-                                    <input type="hidden" name="BookId" value="@book.ID" />
-                                    <button type="submit" class="btn btn-success w-45 mt-2 shadow-sm">Buy</button>
-                                </form>
-                                <form asp-action="AddToCart" asp-controller="ShoppingCart" method="post">
+
+                                <form asp-action="AddToBorrowCart" asp-controller="Home" method="post" class="d-inline me-2">
                                     <input type="hidden" name="bookId" value="@book.ID" />
-                                    <button type="submit" class="btn btn-primary">Add to Cart</button>
+                                    <button type="submit" class="btn btn-primary">Add to Borrow Cart</button>
+                                </form>
+
+                                <form asp-action="AddToBuyCart" asp-controller="Home" method="post" class="d-inline me-2">
+                                    <input type="hidden" name="bookId" value="@book.ID" />
+                                    <button type="submit" class="btn btn-primary">Add to Buy Cart</button>
+                                </form>
+
+                                <form asp-action="BuyBookDirectly" method="post" class="d-inline">
+                                    <input type="hidden" name="BookId" value="@book.ID" />
+                                    <button type="submit" class="btn btn-success w-45 mt-2 shadow-sm">Buy Directly</button>
                                 </form>
                             </div>
                         </div>

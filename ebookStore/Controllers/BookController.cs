@@ -50,60 +50,6 @@ public class BooksController : Controller
 
         return View(books.ToList());
     }
-    // Borrow a book
-    public IActionResult Borrow(int id)
-    {
-        var book = _context.Books.Find(id);
-        if (book == null)
-            return NotFound();
-
-        var borrowedBooks = _context.BorrowedBooks.Where(b => b.Username == User.Identity.Name).ToList();
-
-        // Limit check: Max 3 books borrowed
-        if (borrowedBooks.Count >= 3)
-            return BadRequest("You can only borrow up to 3 books.");
-
-        // Check if available
-        if (_context.BorrowedBooks.Any(b => b.BookId == id))
-        {
-            // Add user to waiting list
-            _context.WaitingListEntries.Add(new WaitingListEntry
-            {
-                BookId = id,
-                Username = User.Identity.Name,
-                DateAdded = DateTime.Now
-            });
-            _context.SaveChanges();
-            return Ok("Added to waiting list.");
-        }
-
-        // Borrow book
-        _context.BorrowedBooks.Add(new BorrowedBook
-        {
-            BookId = id,
-            Username = User.Identity.Name,
-            BorrowDate = DateTime.Now,
-            ReturnDate = DateTime.Now.AddDays(30)
-        });
-        _context.SaveChanges();
-        return Ok("Book borrowed successfully.");
-    }
-    // Buy a book
-    public IActionResult Buy(int id)
-    {
-        var book = _context.Books.Find(id);
-        if (book == null)
-            return NotFound();
-
-        _context.PurchasedBooks.Add(new PurchasedBook
-        {
-            BookId = id,
-            Username = User.Identity.Name,
-            PurchaseDate = DateTime.Now
-        });
-        _context.SaveChanges();
-        return Ok("Book purchased successfully.");
-    }
     // Leave feedback
     [HttpPost]
     public IActionResult LeaveFeedback(int id, string comment, int rating)

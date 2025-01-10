@@ -63,8 +63,21 @@ namespace ebookStore.Controllers
                 priceCommand.Parameters.AddWithValue("@OriginalPriceBuy", book.PriceBuy);
                 priceCommand.Parameters.AddWithValue("@OriginalPriceBorrow", book.PriceBorrowing);
                 priceCommand.ExecuteNonQuery();
-
-                TempData["Message"] = "Book added successfully!";
+                // Insert formats for the book in BookFormats table
+                string insertFormatsQuery = @"
+        INSERT INTO BookFormats (bookId, format)
+        VALUES (@BookId, @Format);
+    ";
+                using var insertFormatCommand = new NpgsqlCommand(insertFormatsQuery, connection);
+                insertFormatCommand.Parameters.AddWithValue("@BookId", bookId);
+                // Add all formats
+                string[] formats = { "EPUB", "FB2", "MOBI", "PDF" };
+                foreach (var format in formats)
+                {
+                    insertFormatCommand.Parameters["@Format"].Value = format;
+                    insertFormatCommand.ExecuteNonQuery();
+                }
+                TempData["Success"] = "Book added successfully with all formats.";
                 return RedirectToAction("AddBook");
             }
             catch (Exception ex)
@@ -186,70 +199,105 @@ namespace ebookStore.Controllers
             return View(book);
         }
 
-        [HttpPost]
-        public IActionResult EditBook(Book book)
+[HttpPost]
+public IActionResult EditBook(Book book, IFormFile EPUBFile, IFormFile FB2File, IFormFile MOBIFile, IFormFile PDFFile)
+{
+    var username = HttpContext.Session.GetString("Username") ?? "test";
+    if (!IsUserAdmin(username))
+        return Unauthorized("You do not have permission to access this page.");
+
+    try
+    {
+        using (var connection = new NpgsqlConnection(_connectionString))
         {
-            var username = HttpContext.Session.GetString("Username") ?? "test";
-            if (!IsUserAdmin(username))
-                return Unauthorized("You do not have permission to access this page.");
-
-            try
+            connection.Open();
+            using (var transaction = connection.BeginTransaction())
             {
-                using (var connection = new NpgsqlConnection(_connectionString))
+                // Update book details in Books table
+                string updateBooksQuery = @"
+                    UPDATE Books
+                    SET Title = @Title, AuthorName = @AuthorName, Publisher = @Publisher, 
+                        PriceBuy = @PriceBuy, PriceBorrowing = @PriceBorrowing, 
+                        YearOfPublish = @YearOfPublish, Genre = @Genre, CoverImagePath = @CoverImagePath
+                    WHERE ID = @ID";
+
+                using (var bookCommand = new NpgsqlCommand(updateBooksQuery, connection))
                 {
-                    connection.Open();
-                    using (var transaction = connection.BeginTransaction())
+                    bookCommand.Parameters.AddWithValue("@ID", book.ID);
+                    bookCommand.Parameters.AddWithValue("@Title", book.Title);
+                    bookCommand.Parameters.AddWithValue("@AuthorName", book.AuthorName);
+                    bookCommand.Parameters.AddWithValue("@Publisher", book.Publisher);
+                    bookCommand.Parameters.AddWithValue("@PriceBuy", book.PriceBuy);
+                    bookCommand.Parameters.AddWithValue("@PriceBorrowing", book.PriceBorrowing);
+                    bookCommand.Parameters.AddWithValue("@YearOfPublish", book.YearOfPublish);
+                    bookCommand.Parameters.AddWithValue("@Genre", book.Genre ?? (object)DBNull.Value);
+                    bookCommand.Parameters.AddWithValue("@CoverImagePath", book.CoverImagePath ?? (object)DBNull.Value);
+
+                    bookCommand.ExecuteNonQuery();
+                }
+
+                // Update prices in Prices table
+                string updatePricesQuery = @"
+                    UPDATE Prices
+                    SET CurrentPriceBuy = @CurrentPriceBuy, CurrentPriceBorrow = @CurrentPriceBorrow
+                    WHERE BookID = @BookID";
+
+                using (var priceCommand = new NpgsqlCommand(updatePricesQuery, connection))
+                {
+                    priceCommand.Parameters.AddWithValue("@BookID", book.ID);
+                    priceCommand.Parameters.AddWithValue("@CurrentPriceBuy", book.PriceBuy);
+                    priceCommand.Parameters.AddWithValue("@CurrentPriceBorrow", book.PriceBorrowing);
+
+                    priceCommand.ExecuteNonQuery();
+                }
+
+                // Handle file uploads and update formats
+                string[] formats = { "EPUB", "FB2", "MOBI", "PDF" };
+                IFormFile[] files = { EPUBFile, FB2File, MOBIFile, PDFFile };
+
+                for (int i = 0; i < formats.Length; i++)
+                {
+                    if (files[i] != null && files[i].Length > 0)
                     {
-                        string updateBooksQuery = @"
-                            UPDATE Books
-                            SET Title = @Title, AuthorName = @AuthorName, Publisher = @Publisher, 
-                                PriceBuy = @PriceBuy, PriceBorrowing = @PriceBorrowing, 
-                                YearOfPublish = @YearOfPublish, Genre = @Genre, CoverImagePath = @CoverImagePath
-                            WHERE ID = @ID";
-
-                        using (var bookCommand = new NpgsqlCommand(updateBooksQuery, connection))
+                        // Save the uploaded file to a specific directory and get the file path
+                        var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "bookformats", $"{book.ID}_{formats[i]}.pdf");
+                        using (var stream = new FileStream(filePath, FileMode.Create))
                         {
-                            bookCommand.Parameters.AddWithValue("@ID", book.ID);
-                            bookCommand.Parameters.AddWithValue("@Title", book.Title);
-                            bookCommand.Parameters.AddWithValue("@AuthorName", book.AuthorName);
-                            bookCommand.Parameters.AddWithValue("@Publisher", book.Publisher);
-                            bookCommand.Parameters.AddWithValue("@PriceBuy", book.PriceBuy);
-                            bookCommand.Parameters.AddWithValue("@PriceBorrowing", book.PriceBorrowing);
-                            bookCommand.Parameters.AddWithValue("@YearOfPublish", book.YearOfPublish);
-                            bookCommand.Parameters.AddWithValue("@Genre", book.Genre ?? (object)DBNull.Value);
-                            bookCommand.Parameters.AddWithValue("@CoverImagePath", book.CoverImagePath ?? (object)DBNull.Value);
-
-                            bookCommand.ExecuteNonQuery();
+                            files[i].CopyTo(stream);
                         }
 
-                        string updatePricesQuery = @"
-                            UPDATE Prices
-                            SET CurrentPriceBuy = @CurrentPriceBuy, CurrentPriceBorrow = @CurrentPriceBorrow
-                            WHERE BookID = @BookID";
+                        // Update the format reference in BookFormats table
+                        string updateFormatQuery = @"
+                            UPDATE BookFormats 
+                            SET Format = @Format, FilePath = @FilePath 
+                            WHERE BookId = @BookId AND Format = @OldFormat";
 
-                        using (var priceCommand = new NpgsqlCommand(updatePricesQuery, connection))
+                        using (var updateFormatCommand = new NpgsqlCommand(updateFormatQuery, connection))
                         {
-                            priceCommand.Parameters.AddWithValue("@BookID", book.ID);
-                            priceCommand.Parameters.AddWithValue("@CurrentPriceBuy", book.PriceBuy);
-                            priceCommand.Parameters.AddWithValue("@CurrentPriceBorrow", book.PriceBorrowing);
+                            updateFormatCommand.Parameters.AddWithValue("@BookId", book.ID);
+                            updateFormatCommand.Parameters.AddWithValue("@Format", formats[i]);
+                            updateFormatCommand.Parameters.AddWithValue("@FilePath", filePath);
+                            updateFormatCommand.Parameters.AddWithValue("@OldFormat", formats[i]);  // Assuming you update the existing format
 
-                            priceCommand.ExecuteNonQuery();
+                            updateFormatCommand.ExecuteNonQuery();
                         }
-
-                        transaction.Commit();
                     }
                 }
 
-                TempData["Message"] = "Book and prices updated successfully!";
-                return RedirectToAction("ManageBooks");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error updating book and prices: {ex.Message}");
-                TempData["Error"] = "An error occurred while updating the book and prices.";
-                return View(book);
+                transaction.Commit();
             }
         }
+
+        TempData["Message"] = "Book updated successfully!";
+        return RedirectToAction("BookDetails", new { id = book.ID });
+    }
+    catch (Exception ex)
+    {
+        TempData["Message"] = "An error occurred while updating the book.";
+        return View(book);
+    }
+}
+
 
         [HttpPost("Admin/SetDiscount")]
         public IActionResult SetDiscount(int bookId, decimal discountedPriceBuy, decimal discountedPriceBorrow, DateTime discountEndDate)
@@ -333,5 +381,65 @@ namespace ebookStore.Controllers
             }
             return View(users); // Return to the ManageUsers view with the list of users
         }
+        // Waiting List 
+        public IActionResult ManageWaitingList(string searchQuery)
+        {
+            var waitingList = new List<WaitingListEntry>();
+
+            using (var connection = new NpgsqlConnection(_connectionString))
+            {
+                connection.Open();
+                string query = "SELECT * FROM WaitingList WHERE Username LIKE @SearchQuery ";
+                using (var command = new NpgsqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@SearchQuery", "%" + searchQuery + "%");
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var waitingListEntry = new WaitingListEntry
+                            {
+                                Id = reader.GetInt32(reader.GetOrdinal("id")),
+                                BookId = reader.GetInt32(reader.GetOrdinal("bookid")),
+                                Username = reader.GetString(reader.GetOrdinal("username")),
+                                DateAdded = reader.GetDateTime(reader.GetOrdinal("queuetime")),
+                            };
+                            waitingList.Add(waitingListEntry);
+                        }
+                    }
+                }
+            }
+
+            return View(waitingList); 
+        }
+
+
+        [HttpPost]
+        public IActionResult RemoveFromWaitingList(int waitingListId)
+        {
+            try
+            {
+                using (var connection = new NpgsqlConnection(_connectionString))
+                {
+                    connection.Open();
+
+                    string query = "DELETE FROM WaitingList WHERE id = @WaitingListId";
+                    using (var command = new NpgsqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@WaitingListId", waitingListId);
+                        command.ExecuteNonQuery();
+                    }
+
+                    TempData["Message"] = "Entry successfully removed from the waiting list.";
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = $"An error occurred: {ex.Message}";
+            }
+
+            return RedirectToAction("ManageWaitingList");
+        }
+
     }
 }
