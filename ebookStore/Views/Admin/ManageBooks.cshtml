@@ -60,14 +60,14 @@
                     @if (book.Price?.IsDiscounted == true)
                     {
                         <span style="text-decoration: line-through; color: red;">
-                            @book.Price.OriginalPriceBorrow.ToString("C")
+                            @book.Price.OriginalPriceBorrow?.ToString("C")
                         </span>
                     }
-                    <span>@book.Price?.CurrentPriceBorrow.ToString("C")</span>
+                    <span>@book.Price?.CurrentPriceBorrow?.ToString("C")</span>
                 </td>
                 <td>
                     <span>Buy: @book.Price?.OriginalPriceBuy.ToString("C")</span><br />
-                    <span>Borrow: @book.Price?.OriginalPriceBorrow.ToString("C")</span>
+                    <span>Borrow: @book.Price?.OriginalPriceBorrow?.ToString("C")</span>
                 </td>
                 <td>@book.Price?.DiscountEndDate?.ToString("yyyy-MM-dd")</td>
                 <td>

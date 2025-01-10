@@ -24,69 +24,71 @@ namespace ebookStore.Controllers
         }
 
         [HttpPost("Admin/AddBook")]
-        public IActionResult AddBook(Book book)
+public IActionResult AddBook(Book book)
+{
+    var username = HttpContext.Session.GetString("Username") ?? "test";
+    if (!IsUserAdmin(username))
+        return Unauthorized("You do not have permission to add books.");
+    
+    try
+    {
+        using var connection = new NpgsqlConnection(_connectionString);
+        connection.Open();
+        // default 
+        book.CopiesAvailable = 3;
+        // Insert into Books table
+        string insertBookQuery = @"
+            INSERT INTO Books (Title, AuthorName, Publisher, PriceBuy, PriceBorrowing, YearOfPublish, Genre, CoverImagePath, SoldCopies, AgeLimit, IsPopular, CopiesAvailable, Files, IsBuyOnly)
+            VALUES (@Title, @AuthorName, @Publisher, @PriceBuy, @PriceBorrowing, @YearOfPublish, @Genre, @CoverImagePath, @SoldCopies, @AgeLimit, @IsPopular, @CopiesAvailable, @Files, @IsBuyOnly)
+            RETURNING ID;";
+
+        int bookId;
+        using (var bookCommand = new NpgsqlCommand(insertBookQuery, connection))
         {
-            var username = HttpContext.Session.GetString("Username") ?? "test";
-            if (!IsUserAdmin(username))
-                return Unauthorized("You do not have permission to add books.");
+            bookCommand.Parameters.AddWithValue("@Title", book.Title);
+            bookCommand.Parameters.AddWithValue("@AuthorName", book.AuthorName);
+            bookCommand.Parameters.AddWithValue("@Publisher", book.Publisher);
+            bookCommand.Parameters.AddWithValue("@PriceBuy", book.PriceBuy);
+            bookCommand.Parameters.AddWithValue("@PriceBorrowing", book.PriceBorrowing ?? (object)DBNull.Value);
+            bookCommand.Parameters.AddWithValue("@YearOfPublish", book.YearOfPublish);
+            bookCommand.Parameters.AddWithValue("@Genre", book.Genre ?? (object)DBNull.Value);
+            bookCommand.Parameters.AddWithValue("@CoverImagePath", book.CoverImagePath ?? (object)DBNull.Value);
+            bookCommand.Parameters.AddWithValue("@SoldCopies", book.SoldCopies);
+            bookCommand.Parameters.AddWithValue("@AgeLimit", book.AgeLimit ?? (object)DBNull.Value);
+            bookCommand.Parameters.AddWithValue("@IsPopular", book.IsPopular);
+            bookCommand.Parameters.AddWithValue("@CopiesAvailable", book.CopiesAvailable);
+            bookCommand.Parameters.AddWithValue("@Files", book.Files ?? (object)DBNull.Value);
+            bookCommand.Parameters.AddWithValue("@IsBuyOnly", book.IsBuyOnly);
 
-            try
-            {
-                using var connection = new NpgsqlConnection(_connectionString);
-                connection.Open();
-
-                string query = @"
-                    INSERT INTO Books (Title, AuthorName, Publisher, PriceBuy, PriceBorrowing, YearOfPublish, Genre, CoverImagePath)
-                    VALUES (@Title, @AuthorName, @Publisher, @PriceBuy, @PriceBorrowing, @YearOfPublish, @Genre, @CoverImagePath)
-                    RETURNING ID;";
-
-                using var command = new NpgsqlCommand(query, connection);
-                command.Parameters.AddWithValue("@Title", book.Title);
-                command.Parameters.AddWithValue("@AuthorName", book.AuthorName);
-                command.Parameters.AddWithValue("@Publisher", book.Publisher);
-                command.Parameters.AddWithValue("@PriceBuy", book.PriceBuy);
-                command.Parameters.AddWithValue("@PriceBorrowing", book.PriceBorrowing);
-                command.Parameters.AddWithValue("@YearOfPublish", book.YearOfPublish);
-                command.Parameters.AddWithValue("@Genre", book.Genre ?? (object)DBNull.Value);
-                command.Parameters.AddWithValue("@CoverImagePath", book.CoverImagePath ?? (object)DBNull.Value);
-
-                int bookId = (int)command.ExecuteScalar();
-
-                string priceQuery = @"
-                    INSERT INTO Prices (bookId, currentpricebuy, currentpriceborrow, originalpricebuy, originalpriceborrow, isdiscounted, discountenddate)
-                    VALUES (@bookid, @CurrentPriceBuy, @CurrentPriceBorrow, @OriginalPriceBuy, @OriginalPriceBorrow, false, NULL);";
-
-                using var priceCommand = new NpgsqlCommand(priceQuery, connection);
-                priceCommand.Parameters.AddWithValue("@bookid", bookId);
-                priceCommand.Parameters.AddWithValue("@CurrentPriceBuy", book.PriceBuy);
-                priceCommand.Parameters.AddWithValue("@CurrentPriceBorrow", book.PriceBorrowing);
-                priceCommand.Parameters.AddWithValue("@OriginalPriceBuy", book.PriceBuy);
-                priceCommand.Parameters.AddWithValue("@OriginalPriceBorrow", book.PriceBorrowing);
-                priceCommand.ExecuteNonQuery();
-                // Insert formats for the book in BookFormats table
-                string insertFormatsQuery = @"
-        INSERT INTO BookFormats (bookId, format)
-        VALUES (@BookId, @Format);
-    ";
-                using var insertFormatCommand = new NpgsqlCommand(insertFormatsQuery, connection);
-                insertFormatCommand.Parameters.AddWithValue("@BookId", bookId);
-                // Add all formats
-                string[] formats = { "EPUB", "FB2", "MOBI", "PDF" };
-                foreach (var format in formats)
-                {
-                    insertFormatCommand.Parameters["@Format"].Value = format;
-                    insertFormatCommand.ExecuteNonQuery();
-                }
-                TempData["Success"] = "Book added successfully with all formats.";
-                return RedirectToAction("AddBook");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error: {ex.Message}");
-                ModelState.AddModelError("", "An error occurred while adding the book.");
-                return View(book);
-            }
+            bookId = (int)bookCommand.ExecuteScalar();
         }
+
+        // Insert into Prices table
+        string insertPriceQuery = @"
+            INSERT INTO Prices (BookID, CurrentPriceBuy, CurrentPriceBorrow, OriginalPriceBuy, OriginalPriceBorrow, IsDiscounted, DiscountEndDate)
+            VALUES (@BookID, @CurrentPriceBuy, @CurrentPriceBorrow, @OriginalPriceBuy, @OriginalPriceBorrow, @IsDiscounted, @DiscountEndDate);";
+
+        using (var priceCommand = new NpgsqlCommand(insertPriceQuery, connection))
+        {
+            priceCommand.Parameters.AddWithValue("@BookID", bookId);
+            priceCommand.Parameters.AddWithValue("@CurrentPriceBuy", book.PriceBuy);
+            priceCommand.Parameters.AddWithValue("@CurrentPriceBorrow", book.PriceBorrowing ?? (object)DBNull.Value);
+            priceCommand.Parameters.AddWithValue("@OriginalPriceBuy", book.PriceBuy);
+            priceCommand.Parameters.AddWithValue("@OriginalPriceBorrow", book.PriceBorrowing ?? (object)DBNull.Value);
+            priceCommand.Parameters.AddWithValue("@IsDiscounted", false); // Default to false
+            priceCommand.Parameters.AddWithValue("@DiscountEndDate", DBNull.Value); // Default to NULL
+            priceCommand.ExecuteNonQuery();
+            TempData["Success"] = "Book added successfully!";
+        }
+        return RedirectToAction("AddBook");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error: {ex.Message}");
+        ModelState.AddModelError("", "An error occurred while adding the book.");
+        return View(book);
+    }
+}
 
         [HttpGet("Admin/ManageBooks")]
         public IActionResult ManageBooks(string searchQuery)
@@ -184,10 +186,15 @@ namespace ebookStore.Controllers
                         AuthorName = reader.GetString(2),
                         Publisher = reader.GetString(3),
                         PriceBuy = reader.GetDecimal(4),
-                        PriceBorrowing = reader.GetDecimal(5),
+                        PriceBorrowing = reader.IsDBNull(5) ? null : reader.GetDecimal(5),
                         YearOfPublish = reader.GetInt32(6),
                         Genre = reader.GetString(7),
-                        CoverImagePath = reader.GetString(8)
+                        CoverImagePath = reader.GetString(8),
+                        IsBuyOnly =  reader.GetBoolean(11),
+                        SoldCopies = reader.GetInt32(10),
+                        IsPopular = reader.GetBoolean(11),
+                        AgeLimit = reader.IsDBNull(12) ? null : (int?)reader.GetInt32(12),
+                        Files = reader.GetString(8)
                     };
                 }
                 else
@@ -200,99 +207,83 @@ namespace ebookStore.Controllers
         }
 
 [HttpPost]
-public IActionResult EditBook(Book book, IFormFile EPUBFile, IFormFile FB2File, IFormFile MOBIFile, IFormFile PDFFile)
+public IActionResult EditBook(Book book)
 {
     var username = HttpContext.Session.GetString("Username") ?? "test";
     if (!IsUserAdmin(username))
-        return Unauthorized("You do not have permission to access this page.");
+        return Unauthorized("You do not have permission to edit books.");
 
     try
     {
-        using (var connection = new NpgsqlConnection(_connectionString))
+        using var connection = new NpgsqlConnection(_connectionString);
+        connection.Open();
+
+        // Update Books table
+        string updateBookQuery = @"
+            UPDATE Books
+            SET Title = @Title, AuthorName = @AuthorName, Publisher = @Publisher, 
+                PriceBuy = @PriceBuy, PriceBorrowing = @PriceBorrowing, 
+                YearOfPublish = @YearOfPublish, Genre = @Genre, CoverImagePath = @CoverImagePath,
+                SoldCopies = @SoldCopies, AgeLimit = @AgeLimit, IsPopular = @IsPopular, 
+                CopiesAvailable = @CopiesAvailable, Files = @Files, IsBuyOnly = @IsBuyOnly
+            WHERE ID = @ID;";
+
+        using (var bookCommand = new NpgsqlCommand(updateBookQuery, connection))
         {
-            connection.Open();
-            using (var transaction = connection.BeginTransaction())
-            {
-                // Update book details in Books table
-                string updateBooksQuery = @"
-                    UPDATE Books
-                    SET Title = @Title, AuthorName = @AuthorName, Publisher = @Publisher, 
-                        PriceBuy = @PriceBuy, PriceBorrowing = @PriceBorrowing, 
-                        YearOfPublish = @YearOfPublish, Genre = @Genre, CoverImagePath = @CoverImagePath
-                    WHERE ID = @ID";
+            bookCommand.Parameters.AddWithValue("@ID", book.ID);
+            bookCommand.Parameters.AddWithValue("@Title", book.Title);
+            bookCommand.Parameters.AddWithValue("@AuthorName", book.AuthorName);
+            bookCommand.Parameters.AddWithValue("@Publisher", book.Publisher);
+            bookCommand.Parameters.AddWithValue("@PriceBuy", book.PriceBuy);
 
-                using (var bookCommand = new NpgsqlCommand(updateBooksQuery, connection))
-                {
-                    bookCommand.Parameters.AddWithValue("@ID", book.ID);
-                    bookCommand.Parameters.AddWithValue("@Title", book.Title);
-                    bookCommand.Parameters.AddWithValue("@AuthorName", book.AuthorName);
-                    bookCommand.Parameters.AddWithValue("@Publisher", book.Publisher);
-                    bookCommand.Parameters.AddWithValue("@PriceBuy", book.PriceBuy);
-                    bookCommand.Parameters.AddWithValue("@PriceBorrowing", book.PriceBorrowing);
-                    bookCommand.Parameters.AddWithValue("@YearOfPublish", book.YearOfPublish);
-                    bookCommand.Parameters.AddWithValue("@Genre", book.Genre ?? (object)DBNull.Value);
-                    bookCommand.Parameters.AddWithValue("@CoverImagePath", book.CoverImagePath ?? (object)DBNull.Value);
+            // Set PriceBorrowing to NULL if IsBuyOnly is true
+            bookCommand.Parameters.AddWithValue("@PriceBorrowing", book.IsBuyOnly ? (object)DBNull.Value : book.PriceBorrowing ?? (object)DBNull.Value);
 
-                    bookCommand.ExecuteNonQuery();
-                }
+            bookCommand.Parameters.AddWithValue("@YearOfPublish", book.YearOfPublish);
+            bookCommand.Parameters.AddWithValue("@Genre", book.Genre ?? (object)DBNull.Value);
+            bookCommand.Parameters.AddWithValue("@CoverImagePath", book.CoverImagePath ?? (object)DBNull.Value);
+            bookCommand.Parameters.AddWithValue("@SoldCopies", book.SoldCopies);
+            bookCommand.Parameters.AddWithValue("@AgeLimit", book.AgeLimit ?? (object)DBNull.Value);
+            bookCommand.Parameters.AddWithValue("@IsPopular", book.IsPopular);
 
-                // Update prices in Prices table
-                string updatePricesQuery = @"
-                    UPDATE Prices
-                    SET CurrentPriceBuy = @CurrentPriceBuy, CurrentPriceBorrow = @CurrentPriceBorrow
-                    WHERE BookID = @BookID";
+            // Set CopiesAvailable to NULL if IsBuyOnly is true
+            bookCommand.Parameters.AddWithValue("@CopiesAvailable", book.IsBuyOnly ? (object)DBNull.Value : book.CopiesAvailable ?? (object)DBNull.Value);
 
-                using (var priceCommand = new NpgsqlCommand(updatePricesQuery, connection))
-                {
-                    priceCommand.Parameters.AddWithValue("@BookID", book.ID);
-                    priceCommand.Parameters.AddWithValue("@CurrentPriceBuy", book.PriceBuy);
-                    priceCommand.Parameters.AddWithValue("@CurrentPriceBorrow", book.PriceBorrowing);
+            bookCommand.Parameters.AddWithValue("@Files", book.Files ?? (object)DBNull.Value);
+            bookCommand.Parameters.AddWithValue("@IsBuyOnly", book.IsBuyOnly);
 
-                    priceCommand.ExecuteNonQuery();
-                }
+            bookCommand.ExecuteNonQuery();
+        }
 
-                // Handle file uploads and update formats
-                string[] formats = { "EPUB", "FB2", "MOBI", "PDF" };
-                IFormFile[] files = { EPUBFile, FB2File, MOBIFile, PDFFile };
+        // Update Prices table
+        string updatePriceQuery = @"
+            UPDATE Prices
+            SET CurrentPriceBuy = @CurrentPriceBuy, CurrentPriceBorrow = @CurrentPriceBorrow, 
+                OriginalPriceBuy = @OriginalPriceBuy, OriginalPriceBorrow = @OriginalPriceBorrow
+            WHERE BookID = @BookID;";
 
-                for (int i = 0; i < formats.Length; i++)
-                {
-                    if (files[i] != null && files[i].Length > 0)
-                    {
-                        // Save the uploaded file to a specific directory and get the file path
-                        var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "bookformats", $"{book.ID}_{formats[i]}.pdf");
-                        using (var stream = new FileStream(filePath, FileMode.Create))
-                        {
-                            files[i].CopyTo(stream);
-                        }
+        using (var priceCommand = new NpgsqlCommand(updatePriceQuery, connection))
+        {
+            priceCommand.Parameters.AddWithValue("@BookID", book.ID);
+            priceCommand.Parameters.AddWithValue("@CurrentPriceBuy", book.PriceBuy);
 
-                        // Update the format reference in BookFormats table
-                        string updateFormatQuery = @"
-                            UPDATE BookFormats 
-                            SET Format = @Format, FilePath = @FilePath 
-                            WHERE BookId = @BookId AND Format = @OldFormat";
+            // Set CurrentPriceBorrow to 0.00 if IsBuyOnly is true
+            priceCommand.Parameters.AddWithValue("@CurrentPriceBorrow", book.IsBuyOnly ? 0.00m : book.PriceBorrowing ?? 0.00m);
 
-                        using (var updateFormatCommand = new NpgsqlCommand(updateFormatQuery, connection))
-                        {
-                            updateFormatCommand.Parameters.AddWithValue("@BookId", book.ID);
-                            updateFormatCommand.Parameters.AddWithValue("@Format", formats[i]);
-                            updateFormatCommand.Parameters.AddWithValue("@FilePath", filePath);
-                            updateFormatCommand.Parameters.AddWithValue("@OldFormat", formats[i]);  // Assuming you update the existing format
+            priceCommand.Parameters.AddWithValue("@OriginalPriceBuy", book.PriceBuy);
 
-                            updateFormatCommand.ExecuteNonQuery();
-                        }
-                    }
-                }
+            // Set OriginalPriceBorrow to 0.00 if IsBuyOnly is true
+            priceCommand.Parameters.AddWithValue("@OriginalPriceBorrow", book.IsBuyOnly ? 0.00m : book.PriceBorrowing ?? 0.00m);
 
-                transaction.Commit();
-            }
+            priceCommand.ExecuteNonQuery();
         }
 
         TempData["Message"] = "Book updated successfully!";
-        return RedirectToAction("BookDetails", new { id = book.ID });
+        return RedirectToAction("ManageBooks");
     }
     catch (Exception ex)
     {
+        Console.WriteLine($"Error: {ex.Message}");
         TempData["Message"] = "An error occurred while updating the book.";
         return View(book);
     }

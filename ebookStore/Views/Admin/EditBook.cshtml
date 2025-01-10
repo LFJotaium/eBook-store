@@ -30,6 +30,12 @@
     </div>
 
     <div>
+        <label asp-for="IsBuyOnly"></label>
+        <input asp-for="IsBuyOnly" id="IsBuyOnly" class="form-check-input" />
+        <span asp-validation-for="IsBuyOnly" class="text-danger"></span>
+    </div>
+
+    <div id="PriceBorrowingGroup">
         <label asp-for="PriceBorrowing"></label>
         <input asp-for="PriceBorrowing" type="number" step="0.01" class="form-control" />
         <span asp-validation-for="PriceBorrowing" class="text-danger"></span>
@@ -48,15 +54,33 @@
     </div>
 
     <div>
+        <label asp-for="SoldCopies"></label>
+        <input asp-for="SoldCopies" type="number" class="form-control" />
+        <span asp-validation-for="SoldCopies" class="text-danger"></span>
+    </div>
+
+    <div>
+        <label asp-for="IsPopular"></label>
+        <input asp-for="IsPopular" class="form-check-input" />
+        <span asp-validation-for="IsPopular" class="text-danger"></span>
+    </div>
+
+    <div>
+        <label asp-for="AgeLimit"></label>
+        <input asp-for="AgeLimit" type="number" class="form-control" />
+        <span asp-validation-for="AgeLimit" class="text-danger"></span>
+    </div>
+
+    <div>
         <label asp-for="CoverImagePath">Cover Image Link</label>
         <input asp-for="CoverImagePath" class="form-control" />
         <span asp-validation-for="CoverImagePath" class="text-danger"></span>
     </div>
 
     <div>
-        <label asp-for="DrivePathFiles">Files Drive path</label>
-        <input asp-for="DrivePathFiles" class="form-control" />
-        <span asp-validation-for="DrivePathFiles" class="text-danger"></span>
+        <label asp-for="Files">Files Drive Path</label>
+        <input asp-for="Files" class="form-control" />
+        <span asp-validation-for="Files" class="text-danger"></span>
     </div>
 
     <button type="submit" class="btn btn-primary mt-3">Save Changes</button>
@@ -65,4 +89,24 @@
 @if (TempData["Message"] != null)
 {
     <div class="alert alert-success mt-3">@TempData["Message"]</div>
+}
+
+@section Scripts {
+    <script>
+        document.getElementById("IsBuyOnly").addEventListener("change", function () {
+            var priceBorrowingGroup = document.getElementById("PriceBorrowingGroup");
+            if (this.checked) {
+                priceBorrowingGroup.style.display = "none";
+            } else {
+                priceBorrowingGroup.style.display = "block";
+            }
+        });
+
+        // Initialize the visibility of the PriceBorrowing field based on the initial state of IsBuyOnly
+        document.addEventListener("DOMContentLoaded", function () {
+            var isBuyOnly = document.getElementById("IsBuyOnly").checked;
+            var priceBorrowingGroup = document.getElementById("PriceBorrowingGroup");
+            priceBorrowingGroup.style.display = isBuyOnly ? "none" : "block";
+        });
+    </script>
 }

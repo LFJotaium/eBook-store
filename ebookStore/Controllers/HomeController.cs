@@ -22,7 +22,10 @@ namespace ebookStore.Controllers
         {
             return !string.IsNullOrEmpty(HttpContext.Session.GetString("Username"));
         }
-
+        private int? SafeGetInt32(NpgsqlDataReader reader, int columnIndex)
+        {
+            return reader.IsDBNull(columnIndex) ? (int?)null : reader.GetInt32(columnIndex);
+        }
         public IActionResult Index(
             string searchQuery,
             string titleFilter, // New parameter for title filter
@@ -64,12 +67,14 @@ namespace ebookStore.Controllers
                 }
 
                 string query = @"
-SELECT b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopies, b.AgeLimit,
-       p.CurrentPriceBuy, p.CurrentPriceBorrow, 
-       p.OriginalPriceBuy, p.OriginalPriceBorrow, 
-       p.IsDiscounted, p.DiscountEndDate, 
-       b.YearOfPublish, b.Genre, b.CoverImagePath,
-       COALESCE(AVG(bf.Rating), 0) AS AverageRating
+SELECT 
+    b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopies, b.AgeLimit,
+    p.CurrentPriceBuy, p.CurrentPriceBorrow, 
+    p.OriginalPriceBuy, p.OriginalPriceBorrow, 
+    p.IsDiscounted, p.DiscountEndDate, 
+    b.YearOfPublish, b.Genre, b.CoverImagePath,
+    b.IsPopular, b.IsBuyOnly, -- Include these columns
+    COALESCE(AVG(bf.Rating), 0) AS AverageRating
 FROM Books b
 LEFT JOIN Prices p ON b.ID = p.BookID
 LEFT JOIN BookFeedback bf ON b.ID = bf.BookId
@@ -122,9 +127,9 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                         Title = reader.GetString(1),
                         AuthorName = reader.GetString(2),
                         Publisher = reader.GetString(3),
-                        CopiesAvailable = reader.GetInt32(4),
-                        SoldCopies = reader.GetInt32(5),
-                        AgeLimit = reader.GetInt32(6),
+                        CopiesAvailable = SafeGetInt32(reader, 4),
+                        SoldCopies = (int)SafeGetInt32(reader, 5),
+                        AgeLimit = SafeGetInt32(reader, 6),
                         Price = new Price
                         {
                             CurrentPriceBuy = reader.IsDBNull(7) ? 0 : reader.GetDecimal(7),
@@ -136,11 +141,13 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                         },
                         YearOfPublish = reader.GetInt32(13),
                         Genre = reader.GetString(14),
-                        CoverImagePath = reader.GetString(15)
+                        CoverImagePath = reader.GetString(15),
+                        IsPopular = reader.GetBoolean(16), // Read as boolean
+                        IsBuyOnly = reader.GetBoolean(17)  // Read as boolean
                     };
                     books.Add(book);
 
-                    decimal averageRating = reader.GetDecimal(16);
+                    decimal averageRating = reader.GetDecimal(18); // Assuming this is column 18
                     bookRatings[book.ID] = averageRating;
                 }
             }
