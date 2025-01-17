@@ -288,7 +288,7 @@ namespace ebookStore.Services
                     <html>
                     <body>
                         <h2>Good news!</h2>
-                        <p>The book you requested (ID: {bookId}) is now available. Please log in to your account to borrow it.</p>
+                        <p>The book you requested (ID: {bookId}) is now available. Please log in to your account to borrow it, you have 2 days to borrow it or else we'll remove it.</p>
                     </body>
                     </html>";
 

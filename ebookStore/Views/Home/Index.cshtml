@@ -1,6 +1,5 @@
 @model IEnumerable<ebookStore.Models.Book>
 
-<!-- Display Messages and Errors -->
 @if (ViewBag.Message != null)
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -33,7 +32,6 @@
     </div>
 }
 
-<!-- Main Content -->
 <section class="book-gallery py-5 bg-light">
     <div class="container">
         <!-- Welcome Message -->
@@ -163,43 +161,68 @@
                             <p class="card-text mb-1"><strong>Genre:</strong> @book.Genre</p>
                             <p class="card-text mb-1"><strong>Year:</strong> @book.YearOfPublish</p>
 
-                            <!-- Display Available Copies only if IsBuyOnly is false -->
-                            @if (!book.IsBuyOnly)
-                            {
-                                <p class="card-text mb-1"><strong>Available:</strong> @book.CopiesAvailable</p>
-                            }
-
-                            <p class="card-text mb-1"><strong>Sold:</strong> @book.SoldCopies</p>
-                            <p class="card-text mb-1"><strong>Age Limit:</strong> +@book.AgeLimit</p>
 
                             <!-- Buy Price -->
                             <p class="card-text mb-1 text-primary">
                                 <strong>Buy:</strong>
                                 @if (book.Price?.IsDiscounted == true)
+
                                 {
                                     <span style="text-decoration: line-through; color: red;">
-                                        @book.Price.OriginalPriceBuy.ToString("C")
+                                        $@book.Price.OriginalPriceBuy.ToString("0.00")
                                     </span>
                                 }
-                                <span>@book.Price?.CurrentPriceBuy.ToString("C")</span>
+                                <span>$@book.Price?.CurrentPriceBuy.ToString("0.00")</span>
                             </p>
 
                             <!-- Borrow Price (only if IsBuyOnly is false) -->
                             @if (!book.IsBuyOnly)
+
                             {
                                 <p class="card-text mb-1">
                                     <strong>Borrow:</strong>
                                     @if (book.Price?.IsDiscounted == true)
+
                                     {
                                         <span style="text-decoration: line-through; color: red;">
-                                            @book.Price.OriginalPriceBorrow?.ToString("C") 
+                                            $@book.Price.OriginalPriceBorrow?.ToString("0.00")
                                         </span>
                                     }
-                                    <span>@book.Price?.CurrentPriceBorrow?.ToString("C") </span>
+                                    <span>$@book.Price?.CurrentPriceBorrow?.ToString("0.00")</span>
                                 </p>
+
+                                <!-- Display Available Copies only if IsBuyOnly is false -->
+                                @if (!book.IsBuyOnly)
+
+                                {
+                                    <p class="card-text mb-1"><strong>Available:</strong> @book.CopiesAvailable</p>
+                                }
+
+                                <p class="card-text mb-1"><strong>Sold:</strong> @book.SoldCopies</p>
+                                <p class="card-text mb-1"><strong>Age Limit:</strong> +@book.AgeLimit</p>
+
+                                <!-- Display Waiting List Information -->
+                                @if (ViewBag.WaitingListCounts.ContainsKey(book.ID) && ViewBag.WaitingListCounts[book.ID] > 0)
+
+                                {
+                                    <p class="card-text mb-1 text-warning">
+                                        <strong>Waiting List:</strong> @ViewBag.WaitingListCounts[book.ID] users are waiting.
+                                    </p>
+                                }
+
+                                <!-- Display Next Available Date -->
+                                @if (ViewBag.NextAvailableDates.ContainsKey(book.ID) && ViewBag.NextAvailableDates[book.ID] != null)
+
+                                {
+                                    <p class="card-text mb-1 text-info">
+                                        <strong>Next Available:</strong> @ViewBag.NextAvailableDates[book.ID].ToString("yyyy-MM-dd") (@ViewBag.DaysUntilAvailable[book.ID] days)
+                                    </p>
+                                }
                             }
 
-                            <!-- Discount End Date (if applicable) -->
+                            <p class="card-text mb-1"><strong>Sold:</strong> @book.SoldCopies</p>
+                            <p class="card-text mb-1"><strong>Age Limit:</strong> +@book.AgeLimit</p>
+                            <!-- Discount End Date -->
                             @if (book.Price?.IsDiscounted == true)
                             {
                                 <p class="card-text mb-1"><strong>Discount Ends:</strong> @book.Price?.DiscountEndDate?.ToString("yyyy-MM-dd")</p>
@@ -212,7 +235,7 @@
 
                             <!-- Buttons -->
                             <div class="mt-auto">
-                                <!-- Borrow Button (only if IsBuyOnly is false) -->
+                                <!-- Borrow Button -->
                                 @if (!book.IsBuyOnly)
                                 {
                                     <form asp-action="AddToBorrowCart" asp-controller="Home" method="post" class="d-inline me-2">

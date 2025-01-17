@@ -1,29 +1,19 @@
 using ebookStore.BackgroundServices;
 using ebookStore.Models;
-using ebookStore.Services; // For DbContext class
-using Microsoft.EntityFrameworkCore;  // For Entity Framework Core
+using ebookStore.Services; 
+using Microsoft.EntityFrameworkCore; 
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure services
-builder.Services.AddDistributedMemoryCache(); // Cache for session
+builder.Services.AddDistributedMemoryCache(); 
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(30); // Session timeout
-    options.Cookie.HttpOnly = true; // Cookie security
-    options.Cookie.IsEssential = true; // Ensures the cookie is set for essential purposes
+    options.IdleTimeout = TimeSpan.FromMinutes(30); 
+    options.Cookie.HttpOnly = true; 
+    options.Cookie.IsEssential = true;
 
 });
-// Add services to the container.
 builder.Services.AddControllersWithViews();
-//Add DbContext configuration
-builder.Services.AddDbContext<EbookContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
-        .EnableSensitiveDataLogging() // Enable detailed logging
-        .LogTo(Console.WriteLine, LogLevel.Information));   // Uses connection string from appsettings.json
-
-
-
 builder.Services.AddTransient<CartCleanupService>();
 builder.Services.AddHostedService<CartCleanupHostedService>();
 
@@ -38,7 +28,6 @@ builder.Services.AddTransient<DiscountCleanupService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -49,7 +38,6 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection(); 
 app.UseStaticFiles();
-// Use session middleware.
 app.UseSession();
 app.UseRouting();
 

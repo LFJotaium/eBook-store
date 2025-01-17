@@ -29,7 +29,6 @@ namespace ebookStore.Services
                     Console.WriteLine($"Stack Trace: {ex.StackTrace}");
                 }
 
-                // Wait for a specific interval before running again (e.g., every hour)
                 await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
             }
         }

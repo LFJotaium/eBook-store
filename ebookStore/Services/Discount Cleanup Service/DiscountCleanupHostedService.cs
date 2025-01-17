@@ -18,7 +18,6 @@ namespace ebookStore.BackgroundServices
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            // Start the timer to run the cleanup task every hour
             _timer = new Timer(ExecuteCleanupTask, null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
             return Task.CompletedTask;
         }
@@ -27,7 +26,6 @@ namespace ebookStore.BackgroundServices
         {
             try
             {
-                // Execute the discount cleanup task
                 await _discountCleanupService.RevertExpiredDiscountsAsync();
             }
             catch (Exception ex)
@@ -38,14 +36,12 @@ namespace ebookStore.BackgroundServices
 
         public Task StopAsync(CancellationToken cancellationToken)
         {
-            // Stop the timer when the service is stopped
             _timer?.Change(Timeout.Infinite, 0);
             return Task.CompletedTask;
         }
 
         public void Dispose()
         {
-            // Dispose of the timer when the service is disposed
             _timer?.Dispose();
         }
     }

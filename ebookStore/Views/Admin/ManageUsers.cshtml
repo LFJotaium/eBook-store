@@ -1,5 +1,4 @@
-@model List<User> 
-<!-- This should match the type passed from the controller -->
+@model List<User>
 
 @{
     ViewData["Title"] = "Manage Users";
@@ -7,7 +6,6 @@
 
 <h1>@ViewData["Title"]</h1>
 
-<!-- Display Success Message -->
 @if (TempData["Message"] != null)
 {
     <div class="alert alert-success">

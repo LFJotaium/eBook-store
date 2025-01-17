@@ -1,7 +1,4 @@
 using Npgsql;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace ebookStore.Services
 {
@@ -32,7 +29,7 @@ namespace ebookStore.Services
 
                 using (var expiredCommand = new NpgsqlCommand(expiredQuery, connection))
                 {
-                    expiredCommand.Parameters.AddWithValue("@CurrentDateTime", currentDateTime.AddMinutes(-1));
+                    expiredCommand.Parameters.AddWithValue("@CurrentDateTime", currentDateTime.AddDays(-2));
 
                     using (var reader = await expiredCommand.ExecuteReaderAsync())
                     {

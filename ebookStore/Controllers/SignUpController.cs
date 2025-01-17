@@ -76,7 +76,6 @@ namespace ebookStore.Controllers
                 return View("~/Views/Account/SignUp.cshtml", userViewModel);
             }
 
-            // Map the ViewModel to the User model
             var user = new User
             {
                 FirstName = userViewModel.FirstName,
@@ -91,14 +90,13 @@ namespace ebookStore.Controllers
             {
                 SaveUserToDatabase(user);
 
-                // Store the user info in session after successful registration
                 HttpContext.Session.SetString("Username", user.Username);
                 HttpContext.Session.SetString("FirstName", user.FirstName);
                 HttpContext.Session.SetString("LastName", user.LastName);
                 HttpContext.Session.SetString("Email", user.Email);
                 HttpContext.Session.SetString("Role", user.Role);
 
-                return RedirectToAction("Index", "Home"); // Redirect to a success page
+                return RedirectToAction("Index", "Home"); 
             }
             catch (Exception ex)
             {
@@ -118,10 +116,10 @@ namespace ebookStore.Controllers
 
             string query = "SELECT COUNT(*) FROM Users WHERE Email = @Email";
             using var command = new NpgsqlCommand(query, connection);
-            command.Parameters.AddWithValue("@Email", email); //Parameter bending to safely bind the email to the query, avoiding SQL injection.
+            command.Parameters.AddWithValue("@Email", email); 
 
             var count = (long)command.ExecuteScalar();
-            return count > 0; // Returns true if the email exists, false otherwise
+            return count > 0; 
 
         }
     }

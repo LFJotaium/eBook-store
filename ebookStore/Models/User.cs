@@ -7,7 +7,7 @@ namespace ebookStore.Models
 {
     public class User
     {
-        [Required] // for name validation
+        [Required] 
         [StringLength(50, MinimumLength = 2, ErrorMessage = "First name must be between 2 and 50 characters")]
         public string FirstName { get; set; }
 
@@ -15,10 +15,10 @@ namespace ebookStore.Models
         public string LastName { get; set; }
 
         [Key]
-        [Required] // primary key 
+        [Required] 
         public string Username { get; set; }
 
-        [Required] // Email validation
+        [Required]
         [DataType(DataType.EmailAddress)]
         [EmailAddress(ErrorMessage = "Invalid email address.")]
         public string Email { get; set; }
@@ -29,7 +29,7 @@ namespace ebookStore.Models
         public string Password { get; set; }
 
         [Required]
-        public string Role { get; set; } = "User"; // Default role is "User"
+        public string Role { get; set; } = "User"; 
 
         public string HashPassword(string password)
         {
@@ -37,22 +37,21 @@ namespace ebookStore.Models
             {
                 // Generate a random salt
                 var salt = GenerateSalt();
-                var combinedPassword = Encoding.UTF8.GetBytes(password + salt); // Combine password with salt
+                var combinedPassword = Encoding.UTF8.GetBytes(password + salt); 
                 var hash = sha256.ComputeHash(combinedPassword);
                 var hashString = Convert.ToBase64String(hash);
 
-                return $"{hashString}:{salt}"; // Store hash and salt together
+                return $"{hashString}:{salt}";
             }
         }
 
         private string GenerateSalt()
         {
             var rng = new RNGCryptoServiceProvider();
-            var saltBytes = new byte[16]; // 128-bit salt
+            var saltBytes = new byte[16]; 
             rng.GetBytes(saltBytes);
             return Convert.ToBase64String(saltBytes);
         }
-        // Make BorrowedBooks and PurchasedBooks nullable by setting them to null
         [NotMapped]
         public virtual ICollection<BorrowedBook> BorrowedBooks { get; set; } = null;
 

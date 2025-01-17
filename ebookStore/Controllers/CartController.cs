@@ -9,7 +9,7 @@ public class CartController : Controller
     private readonly string _connectionString;
     private readonly string _paypalClientId;
 
-    public CartController(EbookContext context, IConfiguration configuration)
+    public CartController(IConfiguration configuration)
     {
         _connectionString = configuration.GetConnectionString("DefaultConnectionString");
         _paypalClientId = configuration["PaypalSettings:ClientId"];
@@ -63,32 +63,7 @@ public class CartController : Controller
 
         return View();
     }
-    /*
-    public IActionResult AddToCart(int bookId)
-    {
-        // Retrieve the user ID from the session or authentication context
-        var userId = GetUserId();
-
-        if (userId == null)
-        {
-            return RedirectToAction("Login", "Account");
-        }
-
-        string insertUserCartQuery = @"INSERT INTO ShoppingCart (Username, BookId, Quantity, ActionType, CreatedAt)
-                                           VALUES (@Username, @BookId, 1, @ActionType, @CreatedAt)";
-        using var insertUserCartCommand = new NpgsqlCommand(insertUserCartQuery, connection, transaction);
-        insertUserCartCommand.Parameters.AddWithValue("@Username", username);
-        insertUserCartCommand.Parameters.AddWithValue("@BookId", bookId);
-        insertUserCartCommand.Parameters.AddWithValue("@ActionType", "Borrow");
-        insertUserCartCommand.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
-        await insertUserCartCommand.ExecuteNonQueryAsync();
-
-        // Optionally, display a success message
-        TempData["Message"] = $"{book.Title} has been added to your cart.";
-
-        // Redirect back to the eBook gallery or the current page
-        return RedirectToAction("Gallery", "Books");
-    }*/
+   
     [HttpGet]
     [Route("cart/ViewCart")]
     public IActionResult ViewCart()
@@ -156,7 +131,6 @@ public class CartController : Controller
             {
                 connection.Open();
 
-                // Step 1: Delete from PurchasedBooks or BorrowedBooks
                 string deleteQuery = actionType == "Buy"
                     ? "DELETE FROM PurchasedBooks WHERE BookId = @bookId AND Username = @username"
                     : "DELETE FROM BorrowedBooks WHERE BookId = @bookId AND Username = @username";
@@ -168,7 +142,6 @@ public class CartController : Controller
                     command.ExecuteNonQuery();
                 }
 
-                // Step 2: Delete from ShoppingCart
                 string deleteFromCartQuery = "DELETE FROM ShoppingCart WHERE BookId = @bookId AND Username = @username";
                 using (var command = new NpgsqlCommand(deleteFromCartQuery, connection))
                 {
@@ -177,7 +150,6 @@ public class CartController : Controller
                     command.ExecuteNonQuery();
                 }
 
-                // Step 3: Handle specific logic for "Borrow"
                 if (actionType == "Borrow")
                 {
                     string incrementCopiesQuery = "UPDATE Books SET CopiesAvailable = CopiesAvailable + 1 WHERE ID = @bookId";
@@ -260,7 +232,7 @@ public class CartController : Controller
         string fromPassword = "eaqa ixie haib nkjw";
 
         string body = "<html><body><h2>Book Availability Notification</h2><p>Dear " + username + ",</p><p>The book you were waiting for is now available for borrowing and it has been added to your cart. " +
-                      "You are the first to be notified. Please log in to your account and borrow the book as soon as possible., you have 30 days to pay for the borrow, otherwise we would have to take the book from your cart.</p>" +
+                      "You are the first to be notified. Please log in to your account and borrow the book as soon as possible., you have 2 days to pay for the borrow, otherwise we would have to take the book from your cart.</p>" +
                       "<p>Book ID: " + bookId + "</p>" +
                       "<p>If you have any questions, feel free to contact us.</p><p>Best regards,<br>Your Ebook Store Team</p></body></html>";
 
@@ -311,7 +283,6 @@ public class CartController : Controller
                 {
                     try
                     {
-                        // Retrieve cart items
                         string selectCartItemsQuery = @"
                             SELECT sc.BookId, sc.Quantity, 
                                    CASE WHEN sc.ActionType = 'Buy' THEN b.PriceBuy ELSE b.PriceBorrowing END AS Price,
@@ -350,12 +321,9 @@ public class CartController : Controller
                             {
                                 await InsertBorrowRecord(item, connection, transaction, username, paypalOrderId);
                             }
-
-                            // Remove from ShoppingCart
                             await DeleteFromCart(item.bookId, username, connection, transaction);
                         }
 
-                        // Commit transaction
                         await transaction.CommitAsync();
 
                         ViewBag.Message = "Payment completed successfully. Thank you for your purchase!";
@@ -398,7 +366,6 @@ public class CartController : Controller
                 {
                     try
                     {
-                        // Check if the user has already bought the book
                         string checkUserBoughtQuery = @"
                         SELECT COUNT(*) 
                         FROM PurchasedBooks 
@@ -417,13 +384,10 @@ public class CartController : Controller
                             }
                         }
 
-                        // Insert the purchase record
                         await InsertPurchaseRecord((bookId, 1, totalAmount, "Buy"), connection, transaction, username, paypalOrderId);
 
-                        // Send email confirmation
                         await SendEmail(userEmail, new List<(int, int, decimal, string)> { (bookId, 1, totalAmount, "Buy") }, "purchase");
 
-                        // Commit transaction
                         await transaction.CommitAsync();
 
                         TempData["Message"] = "Book purchased successfully. Thank you for your purchase!";
@@ -532,11 +496,4 @@ public class CartController : Controller
         }
     }
 
-    [HttpGet]
-    [Route("cart/PaymentSuccess")]
-    public async Task<IActionResult> PaymentSuccessAsync()
-    {
-        ViewBag.Message = "Payment completed successfully. Thank you for your purchase!";
-        return View();
-    }
 }

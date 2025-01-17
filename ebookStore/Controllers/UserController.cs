@@ -7,12 +7,10 @@ using System.Net;
 
 public class UserController : Controller
 {
-    private readonly EbookContext _context;
     private readonly string _connectionString;
 
-    public UserController(EbookContext context, IConfiguration configuration)
+    public UserController(IConfiguration configuration)
     {
-        _context = context;
         _connectionString = configuration.GetConnectionString("DefaultConnectionString");
 
     }
@@ -39,7 +37,6 @@ public class UserController : Controller
         }
 
 
-        // Fetch session data
         var sessionUsername = HttpContext.Session.GetString("Username") ?? "Guest";
         var firstName = HttpContext.Session.GetString("FirstName") ?? "";
         var lastName = HttpContext.Session.GetString("LastName") ?? "";
@@ -56,7 +53,6 @@ public class UserController : Controller
             using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
 
-            // Fetch user details
             var userQuery = "SELECT FirstName, LastName, Email FROM Users WHERE Username = @Username";
             using (var userCommand = new NpgsqlCommand(userQuery, connection))
             {
@@ -78,7 +74,6 @@ public class UserController : Controller
                 return NotFound("User not found.");
             }
 
-            // Fetch borrowed books
             var borrowedBooksQuery = @"
             SELECT b.ID, b.Title, b.AuthorName, bb.BorrowDate, bb.ReturnDate
             FROM BorrowedBooks bb
@@ -101,7 +96,6 @@ public class UserController : Controller
                 }
             }
 
-            // Fetch purchased books
             var purchasedBooksQuery = @"
             SELECT b.ID, b.Title, b.AuthorName, pb.PurchaseDate
             FROM PurchasedBooks pb
@@ -123,7 +117,6 @@ public class UserController : Controller
                 }
             }
 
-            // Fetch waiting list
             var waitingListQuery = @"
             SELECT wl.BookId, b.Title, b.AuthorName, wl.CreatedAt
             FROM WaitingList wl
@@ -139,7 +132,6 @@ public class UserController : Controller
                     waitingList.Add(new
                     {
                         BookId = reader.GetInt32(reader.GetOrdinal("BookId")),
-                        //Title = reader.GetString(reader.GetOrdinal("Title")),
                         Author = reader.GetString(reader.GetOrdinal("AuthorName")),
                         AddedOn = reader.GetDateTime(reader.GetOrdinal("CreatedAt"))
                     });
@@ -153,7 +145,6 @@ public class UserController : Controller
             return RedirectToAction("Index");
         }
 
-        // Map data to the view model
         var profileViewModel = new ProfileViewModel
         {
             FirstName = user.FirstName,
@@ -163,10 +154,8 @@ public class UserController : Controller
             PurchasedBooks = purchasedBooks
         };
 
-        // Pass waiting list to the view
         ViewData["WaitingList"] = waitingList;
 
-        // Pass session data to the view
         ViewData["Username"] = sessionUsername;
         ViewData["FirstName"] = firstName;
         ViewData["LastName"] = lastName;
@@ -192,7 +181,6 @@ public class UserController : Controller
             using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
 
-            // Step 1: Remove the book from the BorrowedBooks table
             var unborrowQuery = "DELETE FROM BorrowedBooks WHERE Username = @Username AND BookId = @BookId";
             using (var unborrowCommand = new NpgsqlCommand(unborrowQuery, connection))
             {
@@ -201,7 +189,6 @@ public class UserController : Controller
                 await unborrowCommand.ExecuteNonQueryAsync();
             }
 
-            // Step 2: Increment the available copies in the Books table
             var incrementCopiesQuery = "UPDATE Books SET CopiesAvailable = CopiesAvailable + 1 WHERE ID = @BookId";
             using (var incrementCommand = new NpgsqlCommand(incrementCopiesQuery, connection))
             {
@@ -209,7 +196,6 @@ public class UserController : Controller
                 await incrementCommand.ExecuteNonQueryAsync();
             }
 
-            // Step 3: Get the first person in the waiting list for the book
             var getFirstWaitingUserQuery = "SELECT Email, Username FROM WaitingList WHERE BookId = @BookId ORDER BY CreatedAt ASC LIMIT 1";
             string firstWaitingUserEmail = null;
             string firstWaitingUserUsername = null;
@@ -229,7 +215,6 @@ public class UserController : Controller
 
             if (!string.IsNullOrEmpty(firstWaitingUserEmail))
             {
-                // Step 4: Send an email to the first person in the waiting list
                 Console.WriteLine($"Sending email to: {firstWaitingUserEmail} for Book ID: {bookId}");
                 try
                 {
@@ -241,7 +226,6 @@ public class UserController : Controller
                     Console.WriteLine($"Error sending email: {ex.Message}");
                 }
 
-                // Step 5: Add the book to the first person's ShoppingCart table instead of BorrowedBooks
                 var addToShoppingCartQuery = "INSERT INTO ShoppingCart (BookId, Username, ActionType) VALUES (@BookId, @Username, @ActionType)";
                 using (var addToCartCommand = new NpgsqlCommand(addToShoppingCartQuery, connection))
                 {
@@ -251,7 +235,6 @@ public class UserController : Controller
                     await addToCartCommand.ExecuteNonQueryAsync();
                 }
 
-                // Step 6: Remove the user from the waiting list
                 var removeFromWaitingListQuery = "DELETE FROM WaitingList WHERE BookId = @BookId AND Username = @Username";
                 using (var removeFromWaitingListCommand = new NpgsqlCommand(removeFromWaitingListQuery, connection))
                 {
@@ -260,7 +243,6 @@ public class UserController : Controller
                     await removeFromWaitingListCommand.ExecuteNonQueryAsync();
                 }
 
-                // Step 7: Decrease the available copies of the book by 1
                 var decreaseCopiesQuery = "UPDATE Books SET CopiesAvailable = CopiesAvailable - 1 WHERE ID = @BookId";
                 using (var decreaseCommand = new NpgsqlCommand(decreaseCopiesQuery, connection))
                 {
@@ -317,7 +299,7 @@ public class UserController : Controller
         catch (Exception ex)
         {
             TempData["Error"] = $"Error: {ex.Message}";
-            return RedirectToAction("Index"); // Redirect to the index page on error
+            return RedirectToAction("Index");
         }
     }
 
@@ -336,7 +318,6 @@ public class UserController : Controller
             using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
 
-            // Step 1: Remove the book from the PurchasedBooks table
             var deleteQuery = "DELETE FROM PurchasedBooks WHERE Username = @Username AND BookId = @BookId";
             using (var deleteCommand = new NpgsqlCommand(deleteQuery, connection))
             {
@@ -357,11 +338,10 @@ public class UserController : Controller
     }
 
 
-    // Method to send email notification when the book becomes available
     private async Task SendEmailForAvailableBook(string email, int bookId)
     {
         string fromMail = "malikabushah@gmail.com";
-        string fromPassword = "vsjm dvly keqg ymzl"; // Use an app-specific password if 2FA is enabled
+        string fromPassword = "vsjm dvly keqg ymzl"; 
 
         string body = $@"
 <html>
@@ -380,7 +360,7 @@ public class UserController : Controller
             IsBodyHtml = true
         };
 
-        message.To.Add(new MailAddress(email)); // Send email to the user's email address
+        message.To.Add(new MailAddress(email)); 
 
         var smtpClient = new SmtpClient("smtp.gmail.com")
         {

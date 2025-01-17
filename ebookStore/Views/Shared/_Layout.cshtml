@@ -5,18 +5,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - ebookStore</title>
-
-    <!-- Linking to Google Fonts for better typography -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" />
-	<!--BootStrap CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Bootstrap 5 CSS -->
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <!-- Custom CSS -->
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/ebookStore.styles.css" asp-append-version="true" />
-
     <style>
         /* Custom Styles for Navigation Bar */
         body {
@@ -31,21 +23,21 @@
 
         /* Change project name (logo) to black */
         .navbar .navbar-brand {
-            color: #000 !important; /* Black color */
+            color: #3d556a !important; 
             font-weight: 600;
-            font-size: 2rem; /* Increase size of logo */
+            font-size: 2rem; 
         }
 
         .navbar {
-            background-color: #007bff;
-            color: #fff;
+            background-color: #ffffff;
+            color: #121111;
         }
 
         /* Change navbar link color */
         .navbar .navbar-nav .nav-link {
-            color: #343a40 !important; /* Dark color for regular state */
-            font-weight: bold; /* Make the font bold */
-            font-size: 1.1rem; /* Increase size of the links */
+            color: #000000 !important; 
+            font-weight: bold; 
+            font-size: 1.1rem; 
             padding-left: 20px;
             padding-right: 20px;
         }
@@ -54,6 +46,16 @@
         .navbar .navbar-nav .nav-link:hover {
             color: #ffcc00 !important; /* Yellow color on hover */
             text-decoration: underline;
+        }
+        /* Ensure dropdown menu is visible */
+        .navbar .dropdown-menu {
+            z-index: 1000; 
+            background-color: #fff; 
+            border: 1px solid rgba(0, 0, 0, 0.15); 
+        }
+        
+        .navbar {
+            overflow: visible;
         }
 
         .navbar-toggler {
@@ -86,7 +88,7 @@
 
 
         .footer {
-            background-color: #343a40;
+            background-color: #3d556a;
             color: #fff;
             padding: 20px 0;
         }
@@ -142,24 +144,26 @@
                             </li>
                     }
 
-                   
+                    <div class="navbar-collapse collapse">
+                        <ul class="navbar-nav">
+                            @if (Context.Session.GetString("Role") == "Admin")
+                            {
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" 
+                                       data-bs-toggle="dropdown" aria-expanded="false">
+                                        Admin
+                                    </a>
+                                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                        <li><a class="dropdown-item" href="@Url.Action("AddBook", "Admin")">Add Book</a></li>
+                                        <li><a class="dropdown-item" href="@Url.Action("ManageBooks", "Admin")">Manage Books</a></li>
+                                        <li><a class="dropdown-item" href="@Url.Action("ManageUsers", "Admin")">Manage Users</a></li>
+                                        <li><a class="dropdown-item" href="@Url.Action("ManageWaitingList", "Admin")">Manage WaitingList</a></li>
+                                    </ul>
+                                </li>
 
-                     @if (Context.Session.GetString("Role") == "Admin")
-                    {
-                        <!-- Admin Dropdown Menu -->
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                Admin
-                            </a>
-                            <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                                <li><a class="dropdown-item" href="@Url.Action("AddBook", "Admin")">Add Book</a></li>
-                                
-                                <li><a class="dropdown-item" href="@Url.Action("ManageBooks", "Admin")">Manage Books</a></li>
-                                <li><a class="dropdown-item" href="@Url.Action("ManageUsers", "Admin")">Manage Users</a></li>
-                                <li><a class="dropdown-item" href="@Url.Action("ManageWaitingList", "Admin")">Manage WaitingList</a></li>
-                            </ul>
-                        </li>
-                    }
+                            }
+                        </ul>
+                    </div>
                 </ul>
 
                 @if (!string.IsNullOrEmpty(Context.Session.GetString("Username")))
@@ -186,12 +190,10 @@
 
 <footer class="footer text-muted">
     <div class="container">
-        &copy; 2024 - ebookStore - <a asp-area="" asp-controller="SignUp" asp-action="Privacy">Privacy</a>
+        &copy; 2024 - ebookStore®
     </div>
 </footer>
 
-<script src="~/lib/jquery/dist/jquery.min.js"></script>
-<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="~/js/site.js" asp-append-version="true"></script>
 @await RenderSectionAsync("Scripts", required: false)
 </body>

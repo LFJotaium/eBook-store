@@ -34,9 +34,7 @@ public IActionResult AddBook(Book book)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
-        // default 
         book.CopiesAvailable = 3;
-        // Insert into Books table
         string insertBookQuery = @"
             INSERT INTO Books (Title, AuthorName, Publisher, PriceBuy, PriceBorrowing, YearOfPublish, Genre, CoverImagePath, SoldCopies, AgeLimit, IsPopular, CopiesAvailable, Files, IsBuyOnly)
             VALUES (@Title, @AuthorName, @Publisher, @PriceBuy, @PriceBorrowing, @YearOfPublish, @Genre, @CoverImagePath, @SoldCopies, @AgeLimit, @IsPopular, @CopiesAvailable, @Files, @IsBuyOnly)
@@ -63,7 +61,6 @@ public IActionResult AddBook(Book book)
             bookId = (int)bookCommand.ExecuteScalar();
         }
 
-        // Insert into Prices table
         string insertPriceQuery = @"
             INSERT INTO Prices (BookID, CurrentPriceBuy, CurrentPriceBorrow, OriginalPriceBuy, OriginalPriceBorrow, IsDiscounted, DiscountEndDate)
             VALUES (@BookID, @CurrentPriceBuy, @CurrentPriceBorrow, @OriginalPriceBuy, @OriginalPriceBorrow, @IsDiscounted, @DiscountEndDate);";
@@ -75,8 +72,8 @@ public IActionResult AddBook(Book book)
             priceCommand.Parameters.AddWithValue("@CurrentPriceBorrow", book.PriceBorrowing ?? (object)DBNull.Value);
             priceCommand.Parameters.AddWithValue("@OriginalPriceBuy", book.PriceBuy);
             priceCommand.Parameters.AddWithValue("@OriginalPriceBorrow", book.PriceBorrowing ?? (object)DBNull.Value);
-            priceCommand.Parameters.AddWithValue("@IsDiscounted", false); // Default to false
-            priceCommand.Parameters.AddWithValue("@DiscountEndDate", DBNull.Value); // Default to NULL
+            priceCommand.Parameters.AddWithValue("@IsDiscounted", false); 
+            priceCommand.Parameters.AddWithValue("@DiscountEndDate", DBNull.Value); 
             priceCommand.ExecuteNonQuery();
             TempData["Success"] = "Book added successfully!";
         }
@@ -93,6 +90,7 @@ public IActionResult AddBook(Book book)
         [HttpGet("Admin/ManageBooks")]
         public IActionResult ManageBooks(string searchQuery)
         {
+
             var username = HttpContext.Session.GetString("Username") ?? "test";
             if (!IsUserAdmin(username))
                 return Unauthorized("You do not have permission to access this page.");
@@ -153,12 +151,27 @@ public IActionResult AddBook(Book book)
 
             using var connection = new NpgsqlConnection(_connectionString);
             connection.Open();
-            string query = "DELETE FROM Books WHERE ID = @ID";
-            using var command = new NpgsqlCommand(query, connection);
-            command.Parameters.AddWithValue("@ID", bookId);
-            command.ExecuteNonQuery();
+            using var transaction = connection.BeginTransaction();
+            try
+            {
+                string deletePricesQuery = "DELETE FROM Prices WHERE BookID = @BookID";
+                using var deletePricesCommand = new NpgsqlCommand(deletePricesQuery, connection, transaction);
+                deletePricesCommand.Parameters.AddWithValue("@BookID", bookId);
+                deletePricesCommand.ExecuteNonQuery();
 
-            TempData["Message"] = "Book deleted successfully!";
+                string deleteBookQuery = "DELETE FROM Books WHERE ID = @ID";
+                using var deleteBookCommand = new NpgsqlCommand(deleteBookQuery, connection, transaction);
+                deleteBookCommand.Parameters.AddWithValue("@ID", bookId);
+                deleteBookCommand.ExecuteNonQuery();
+                transaction.Commit();
+                TempData["Message"] = "Book deleted successfully!";
+            }
+            catch (Exception ex)
+            {
+                transaction.Rollback();
+                TempData["Error"] = $"Error deleting book: {ex.Message}";
+            }
+
             return RedirectToAction("ManageBooks");
         }
 
@@ -303,14 +316,35 @@ public IActionResult EditBook(Book book)
                 connection.Open();
                 using var transaction = connection.BeginTransaction();
 
-                var command = new NpgsqlCommand("UPDATE Prices SET IsDiscounted = @IsDiscounted, DiscountEndDate = @DiscountEndDate, CurrentPriceBuy = @DiscountedPriceBuy, CurrentPriceBorrow = @DiscountedPriceBorrow WHERE BookID = @BookID", connection);
-                command.Parameters.AddWithValue("@IsDiscounted", true);
-                command.Parameters.AddWithValue("@DiscountEndDate", discountEndDate);
-                command.Parameters.AddWithValue("@DiscountedPriceBuy", discountedPriceBuy);
-                command.Parameters.AddWithValue("@DiscountedPriceBorrow", discountedPriceBorrow);
-                command.Parameters.AddWithValue("@BookID", bookId);
+                // Retrieve the original prices
+                var getOriginalPricesCommand = new NpgsqlCommand("SELECT OriginalPriceBuy, OriginalPriceBorrow FROM Prices WHERE BookID = @BookID", connection);
+                getOriginalPricesCommand.Parameters.AddWithValue("@BookID", bookId);
 
-                command.ExecuteNonQuery();
+                using var reader = getOriginalPricesCommand.ExecuteReader();
+                if (!reader.Read())
+                {
+                    return NotFound("Book not found.");
+                }
+
+                decimal originalPriceBuy = reader.GetDecimal(0);
+                decimal originalPriceBorrow = reader.GetDecimal(1);
+                reader.Close();
+
+                // Validate discounted prices
+                if (discountedPriceBuy > originalPriceBuy || discountedPriceBorrow > originalPriceBorrow)
+                {
+                    return BadRequest("Discounted prices cannot be higher than the original prices.");
+                }
+
+                // Update the prices with the discounted values
+                var updateCommand = new NpgsqlCommand("UPDATE Prices SET IsDiscounted = @IsDiscounted, DiscountEndDate = @DiscountEndDate, CurrentPriceBuy = @DiscountedPriceBuy, CurrentPriceBorrow = @DiscountedPriceBorrow WHERE BookID = @BookID", connection);
+                updateCommand.Parameters.AddWithValue("@IsDiscounted", true);
+                updateCommand.Parameters.AddWithValue("@DiscountEndDate", discountEndDate);
+                updateCommand.Parameters.AddWithValue("@DiscountedPriceBuy", discountedPriceBuy);
+                updateCommand.Parameters.AddWithValue("@DiscountedPriceBorrow", discountedPriceBorrow);
+                updateCommand.Parameters.AddWithValue("@BookID", bookId);
+
+                updateCommand.ExecuteNonQuery();
                 transaction.Commit();
 
                 return RedirectToAction("ManageBooks");
@@ -321,7 +355,6 @@ public IActionResult EditBook(Book book)
                 return View("Error");
             }
         }
-        
         private bool IsUserAdmin(string username)
         {
             using var connection = new NpgsqlConnection(_connectionString);
@@ -339,6 +372,9 @@ public IActionResult EditBook(Book book)
         [HttpPost("Admin/DeleteUser")]
         public IActionResult DeleteUser(string username)
         {
+                var currentusername = HttpContext.Session.GetString("Username") ?? "test";
+    if (!IsUserAdmin(currentusername))
+        return Unauthorized("You do not have permission to add books.");
                 using var connection = new NpgsqlConnection(_connectionString);
                 connection.Open();
                 string query = "DELETE FROM Users WHERE Username = @Username";
@@ -351,10 +387,12 @@ public IActionResult EditBook(Book book)
         // Manage Users with search functionality
         public IActionResult ManageUsers(string searchQuery)
         {
+            var currentusername = HttpContext.Session.GetString("Username") ?? "test";
+            if (!IsUserAdmin(currentusername))
+                return Unauthorized("You do not have permission to add books.");
             var users = new List<User>();
             using var connection = new NpgsqlConnection(_connectionString);
             connection.Open();
-            // Adjusted query to handle search properly
             string query = "SELECT * FROM Users WHERE Username LIKE @SearchQuery OR Email LIKE @SearchQuery";
             using var command = new NpgsqlCommand(query, connection);
             command.Parameters.AddWithValue("@SearchQuery", "%" + searchQuery + "%");
@@ -364,17 +402,18 @@ public IActionResult EditBook(Book book)
                 var user = new User
                 {
                     Username = reader.GetString(reader.GetOrdinal("Username")),
-                    // Add other user properties here, assuming you have them in your User class
                     Email = reader.GetString(reader.GetOrdinal("Email")),
-                    // Add more properties if needed
                 };
                 users.Add(user);
             }
-            return View(users); // Return to the ManageUsers view with the list of users
+            return View(users);
         }
         // Waiting List 
         public IActionResult ManageWaitingList(string searchQuery)
         {
+            var currentusername = HttpContext.Session.GetString("Username") ?? "test";
+            if (!IsUserAdmin(currentusername))
+                return Unauthorized("You do not have permission to add books.");
             var waitingList = new List<WaitingListEntry>();
 
             using (var connection = new NpgsqlConnection(_connectionString))
@@ -408,6 +447,9 @@ public IActionResult EditBook(Book book)
         [HttpPost]
         public IActionResult RemoveFromWaitingList(int waitingListId)
         {
+            var currentusername = HttpContext.Session.GetString("Username") ?? "test";
+            if (!IsUserAdmin(currentusername))
+                return Unauthorized("You do not have permission to add books.");
             try
             {
                 using (var connection = new NpgsqlConnection(_connectionString))
@@ -431,6 +473,7 @@ public IActionResult EditBook(Book book)
 
             return RedirectToAction("ManageWaitingList");
         }
+
 
     }
 }

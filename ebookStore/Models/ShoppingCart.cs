@@ -10,7 +10,7 @@ namespace ebookStore.Models
         public string  Username { get; set; }
         public int BookId { get; set; }
         public int Quantity { get; set; }
-        public DateTime CreatedAt { get; set; } // Add this line
+        public DateTime CreatedAt { get; set; } 
         public string ActionType { get; set; }
     }
 }

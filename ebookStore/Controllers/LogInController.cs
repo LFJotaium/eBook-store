@@ -22,10 +22,9 @@ public class LogInController : Controller
     [HttpPost]
     public IActionResult LogIn(LogInModel userInfo)
     {
-        // If the user is already logged in, redirect them to the homepage
         if (HttpContext.Session.GetString("LoggedIn") == "in")
         {
-            return RedirectToAction("Index", "Home"); // Redirect to Home page if logged in
+            return RedirectToAction("Index", "Home");
         }
 
         if (!ModelState.IsValid)
@@ -39,7 +38,6 @@ public class LogInController : Controller
             connection.Open();
             _logger.LogInformation("Attempting login for Email: {Email}", userInfo.Email);
 
-            // Retrieve the stored hashed password and other user details from the database
             string query = "SELECT Password, Username, FirstName, LastName, Email, Role FROM Users WHERE Email = @Email";
             using var command = new NpgsqlCommand(query, connection);
             command.Parameters.AddWithValue("@Email", userInfo.Email);
@@ -54,10 +52,8 @@ public class LogInController : Controller
                     var lastName = reader["LastName"].ToString();
                     var role = reader["Role"].ToString();
 
-                    // Verify the entered password against the stored hashed password
                     if (storedPasswordHash != null && VerifyPassword(userInfo.Password, storedPasswordHash))
                     {
-                        // Store the user info in session
                         HttpContext.Session.SetString("Username", storedUsername);
                         HttpContext.Session.SetString("FirstName", firstName);
                         HttpContext.Session.SetString("LastName", lastName);
@@ -65,16 +61,13 @@ public class LogInController : Controller
                         HttpContext.Session.SetString("Role", role);
                         HttpContext.Session.SetString("LoggedIn", "in");
 
-                        // Redirect to the homepage after successful login
                         return RedirectToAction("Index", "Home");
                     }
                 }
             }
 
-            // Log failed login attempt
             _logger.LogWarning("Login failed for Email: {Email}", userInfo.Email);
 
-            // Add an error message to the ViewBag to display on the login page
             ViewBag.ErrorMessage = "Invalid email or password.";
             return View("~/Views/Account/LogIn.cshtml");
         }
@@ -82,7 +75,6 @@ public class LogInController : Controller
         {
             _logger.LogError(ex, "Error during login for Email: {Email}", userInfo.Email);
 
-            // Add a general error message
             ViewBag.ErrorMessage = "An error occurred while processing your request.";
             return View("~/Views/Account/LogIn.cshtml");
         }
@@ -90,7 +82,6 @@ public class LogInController : Controller
 
 
 
-    // Method to verify the password hash with salt (more secure)
     private bool VerifyPassword(string enteredPassword, string storedPasswordHash)
     {
         var parts = storedPasswordHash.Split(":");
@@ -102,7 +93,7 @@ public class LogInController : Controller
 
         using (var sha256 = SHA256.Create())
         {
-            var combinedPassword = Encoding.UTF8.GetBytes(enteredPassword + storedSalt); // Combine password with salt
+            var combinedPassword = Encoding.UTF8.GetBytes(enteredPassword + storedSalt); 
             var hash = sha256.ComputeHash(combinedPassword);
             var hashString = Convert.ToBase64String(hash);
 

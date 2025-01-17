@@ -4,7 +4,6 @@ using Npgsql;
 using System.Net.Mail;
 using System.Net;
 using System.Text.Json.Nodes;
-//using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.BlazorIdentity.Pages.Manage;
 
 namespace ebookStore.Controllers
 {
@@ -17,7 +16,6 @@ namespace ebookStore.Controllers
             _connectionString = configuration.GetConnectionString("DefaultConnectionString");
         }
 
-        // Helper method to check if the user is logged in
         private bool IsUserLoggedIn()
         {
             return !string.IsNullOrEmpty(HttpContext.Session.GetString("Username"));
@@ -28,17 +26,17 @@ namespace ebookStore.Controllers
         }
         public IActionResult Index(
             string searchQuery,
-            string titleFilter, // New parameter for title filter
+            string titleFilter, 
             string genreFilter,
             string authorFilter,
             decimal? minPrice,
             decimal? maxPrice,
             string sortOrder,
-            bool? showDiscounted) // New parameter for discounted books
+            bool? showDiscounted) 
         {
             if (!IsUserLoggedIn())
             {
-                return RedirectToAction("Login", "Account"); // Redirect to login page if not logged in
+                return RedirectToAction("Login", "Account"); 
             }
 
             Dictionary<int, decimal> bookRatings = new Dictionary<int, decimal>(); var username = HttpContext.Session.GetString("Username") ?? "Guest";
@@ -55,7 +53,6 @@ namespace ebookStore.Controllers
                 using var connection = new NpgsqlConnection(_connectionString);
                 connection.Open();
 
-                // Fetch all distinct genres from the database
                 string genreQuery = "SELECT DISTINCT Genre FROM Books WHERE Genre IS NOT NULL";
                 using (var genreCommand = new NpgsqlCommand(genreQuery, connection))
                 {
@@ -78,9 +75,8 @@ SELECT
 FROM Books b
 LEFT JOIN Prices p ON b.ID = p.BookID
 LEFT JOIN BookFeedback bf ON b.ID = bf.BookId
-WHERE 1=1"; // Initialize WHERE clause with a true condition
+WHERE 1=1"; 
 
-                // Apply filters dynamically
                 if (!string.IsNullOrEmpty(titleFilter)) query += " AND b.Title ILIKE @TitleFilter";
                 if (!string.IsNullOrEmpty(authorFilter)) query += " AND b.AuthorName ILIKE @AuthorFilter";
                 if (!string.IsNullOrEmpty(genreFilter)) query += " AND b.Genre = @Genre";
@@ -92,13 +88,11 @@ WHERE 1=1"; // Initialize WHERE clause with a true condition
                     query += " AND p.IsDiscounted = TRUE AND p.DiscountEndDate >= CURRENT_DATE";
                 }
 
-                // Group by all non-aggregated columns
                 query += @"
 GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopies, b.AgeLimit,
          p.CurrentPriceBuy, p.CurrentPriceBorrow, p.OriginalPriceBuy, p.OriginalPriceBorrow, 
          p.IsDiscounted, p.DiscountEndDate, b.YearOfPublish, b.Genre, b.CoverImagePath";
 
-                // Apply sorting
                 query += sortOrder switch
                 {
                     "price_asc" => " ORDER BY p.CurrentPriceBuy ASC",
@@ -106,11 +100,10 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                     "year_asc" => " ORDER BY b.YearOfPublish ASC",
                     "year_desc" => " ORDER BY b.YearOfPublish DESC",
                     "popularity" => " ORDER BY b.SoldCopies DESC",
-                    _ => " ORDER BY b.Title ASC" // Default sorting
+                    _ => " ORDER BY b.Title ASC" 
                 };
                 using var command = new NpgsqlCommand(query, connection);
 
-                // Add parameters
                 if (!string.IsNullOrEmpty(titleFilter)) command.Parameters.AddWithValue("@TitleFilter", $"%{titleFilter}%");
                 if (!string.IsNullOrEmpty(authorFilter)) command.Parameters.AddWithValue("@AuthorFilter", $"%{authorFilter}%");
                 if (!string.IsNullOrEmpty(genreFilter)) command.Parameters.AddWithValue("@Genre", genreFilter);
@@ -142,12 +135,12 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                         YearOfPublish = reader.GetInt32(13),
                         Genre = reader.GetString(14),
                         CoverImagePath = reader.GetString(15),
-                        IsPopular = reader.GetBoolean(16), // Read as boolean
-                        IsBuyOnly = reader.GetBoolean(17)  // Read as boolean
+                        IsPopular = reader.GetBoolean(16), 
+                        IsBuyOnly = reader.GetBoolean(17)  
                     };
                     books.Add(book);
 
-                    decimal averageRating = reader.GetDecimal(18); // Assuming this is column 18
+                    decimal averageRating = reader.GetDecimal(18); 
                     bookRatings[book.ID] = averageRating;
                 }
             }
@@ -156,7 +149,74 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                 TempData["Error"] = $"Error: {ex.Message}";
             }
 
-            List<(string Username, int Rating, string Comment)> feedbackList = new List<(string, int, string)>();
+
+
+
+
+
+			var waitingListCounts = new Dictionary<int, int>();
+			var nextAvailableDates = new Dictionary<int, DateTime?>();
+			var daysUntilAvailable = new Dictionary<int, int?>();
+
+			try
+			{
+				using var connection = new NpgsqlConnection(_connectionString);
+				connection.Open();
+
+				Console.WriteLine("Database connection opened successfully.");
+
+				foreach (var book in books)
+				{
+					Console.WriteLine($"Processing book ID: {book.ID}, Title: {book.Title}");
+
+					string waitingListQuery = "SELECT COUNT(*) FROM WaitingList WHERE BookId = @BookId";
+					using var waitingListCommand = new NpgsqlCommand(waitingListQuery, connection);
+					waitingListCommand.Parameters.AddWithValue("@BookId", book.ID);
+					int waitingListCount = Convert.ToInt32(waitingListCommand.ExecuteScalar());
+					waitingListCounts[book.ID] = waitingListCount;
+
+					Console.WriteLine($"Book ID: {book.ID}, Waiting List Count: {waitingListCount}");
+
+					string nextAvailableQuery = @"
+            SELECT MIN(ReturnDate) 
+            FROM BorrowedBooks 
+            WHERE BookId = @BookId AND ReturnDate > CURRENT_DATE";
+					using var nextAvailableCommand = new NpgsqlCommand(nextAvailableQuery, connection);
+					nextAvailableCommand.Parameters.AddWithValue("@BookId", book.ID);
+					var nextAvailableDate = nextAvailableCommand.ExecuteScalar() as DateTime?;
+
+					if (nextAvailableDate.HasValue)
+					{
+						nextAvailableDates[book.ID] = nextAvailableDate.Value;
+						daysUntilAvailable[book.ID] = (int)(nextAvailableDate.Value - DateTime.Now).TotalDays;
+
+						Console.WriteLine($"Book ID: {book.ID}, Next Available Date: {nextAvailableDate.Value}, Days Until Available: {daysUntilAvailable[book.ID]}");
+					}
+					else
+					{
+						nextAvailableDates[book.ID] = null;
+						daysUntilAvailable[book.ID] = null;
+
+						Console.WriteLine($"Book ID: {book.ID}, No next available date found.");
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Error fetching waiting list or next available date: {ex.Message}");
+				TempData["Error"] = $"Error fetching waiting list or next available date: {ex.Message}";
+			}
+
+			ViewBag.WaitingListCounts = waitingListCounts;
+			ViewBag.NextAvailableDates = nextAvailableDates;
+			ViewBag.DaysUntilAvailable = daysUntilAvailable;
+
+			Console.WriteLine("Waiting list and next available dates processed successfully.");
+
+
+
+
+			List<(string Username, int Rating, string Comment)> feedbackList = new List<(string, int, string)>();
 
             try
             {
@@ -175,9 +235,9 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                 while (feedbackReader.Read())
                 {
                     feedbackList.Add((
-                        feedbackReader.GetString(0), // Username
-                        feedbackReader.GetInt32(1), // Rating
-                        feedbackReader.IsDBNull(2) ? "" : feedbackReader.GetString(2) // Comment
+                        feedbackReader.GetString(0), 
+                        feedbackReader.GetInt32(1), 
+                        feedbackReader.IsDBNull(2) ? "" : feedbackReader.GetString(2) 
                     ));
                 }
             }
@@ -190,7 +250,7 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
             ViewData["Username"] = username;
             ViewData["AllGenres"] = allGenres;
             ViewData["sortOrder"] = sortOrder;
-            ViewData["showDiscounted"] = showDiscounted; // Pass the filter to the view
+            ViewData["showDiscounted"] = showDiscounted;
 
             return View(books);
         }
@@ -211,7 +271,6 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                 {
                     await connection.OpenAsync();
 
-                    // Check if the user has already bought the book
                     string checkUserBoughtQuery = @"
                 SELECT COUNT(*) 
                 FROM PurchasedBooks 
@@ -229,7 +288,6 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                         }
                     }
 
-                    // Fetch the book price
                     string getPriceQuery = @"
                 SELECT currentpricebuy 
                 FROM Prices 
@@ -239,12 +297,10 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                         getPriceCommand.Parameters.AddWithValue("@BookId", bookId);
                         decimal price = (decimal)await getPriceCommand.ExecuteScalarAsync();
 
-                        // Pass the required variables to the DirectCheckout view
                         ViewBag.PaypalClientId = "AVUpkuHdTvwNd9BBm_r3O1e1REZX1O0AsngCwreFyRjKpohV-i__JKzmiAch1nvR4VWDckZ4xlInNZR3";
                         ViewBag.TotalAmount = price;
                         ViewBag.BookId = bookId;
 
-                        // Explicitly specify the view path
                         return View("~/Views/Cart/DirectCheckout.cshtml");
                     }
                 }
@@ -258,8 +314,11 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
         [HttpPost]
         public async Task<IActionResult> AddToBorrowCart(int bookId)
         {
+            Console.WriteLine($"AddToBorrowCart called for BookId: {bookId}");
+
             if (!IsUserLoggedIn())
             {
+                Console.WriteLine("User is not logged in. Redirecting to Login page.");
                 TempData["Error"] = "You need to log in to borrow a book.";
                 return RedirectToAction("Login", "Account");
             }
@@ -268,70 +327,79 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
             {
                 using var connection = new NpgsqlConnection(_connectionString);
                 await connection.OpenAsync();
+                Console.WriteLine("Database connection opened successfully.");
+
                 using var transaction = await connection.BeginTransactionAsync();
+                Console.WriteLine("Transaction started.");
 
                 string username = HttpContext.Session.GetString("Username");
                 string email = HttpContext.Session.GetString("Email");
+                Console.WriteLine($"Username: {username}, Email: {email}");
 
-                // Check if the user has already borrowed the same book
                 string checkBorrowedBookQuery = "SELECT COUNT(*) FROM BorrowedBooks WHERE BookId = @BookId AND Username = @Username";
                 using var checkBorrowedBookCommand = new NpgsqlCommand(checkBorrowedBookQuery, connection, transaction);
                 checkBorrowedBookCommand.Parameters.AddWithValue("@BookId", bookId);
                 checkBorrowedBookCommand.Parameters.AddWithValue("@Username", username);
                 long alreadyBorrowedCount = (long)await checkBorrowedBookCommand.ExecuteScalarAsync();
+                Console.WriteLine($"Number of times the user has already borrowed this book: {alreadyBorrowedCount}");
 
                 if (alreadyBorrowedCount > 0)
                 {
+                    Console.WriteLine("User has already borrowed this book. Rolling back transaction.");
                     TempData["Error"] = "You have already borrowed this book.";
                     await transaction.RollbackAsync();
                     return RedirectToAction("Index");
                 }
 
-                // Ensure the total number of borrowed books (cart + already borrowed) is less than 3
                 string checkTotalBorrowedBooksQuery = @"
-    SELECT 
-        (SELECT COUNT(*) FROM BorrowedBooks WHERE Username = @Username) +
-        (SELECT COUNT(*) FROM ShoppingCart WHERE Username = @Username AND ActionType = 'Borrow') AS TotalBorrowedBooks";
+SELECT 
+    (SELECT COUNT(*) FROM BorrowedBooks WHERE Username = @Username) +
+    (SELECT COUNT(*) FROM ShoppingCart WHERE Username = @Username AND ActionType = 'Borrow') AS TotalBorrowedBooks";
                 using var checkTotalBorrowedBooksCommand = new NpgsqlCommand(checkTotalBorrowedBooksQuery, connection, transaction);
                 checkTotalBorrowedBooksCommand.Parameters.AddWithValue("@Username", username);
                 long totalBorrowedBooks = (long)await checkTotalBorrowedBooksCommand.ExecuteScalarAsync();
+                Console.WriteLine($"Total borrowed books (including cart): {totalBorrowedBooks}");
 
                 if (totalBorrowedBooks >= 3)
                 {
+                    Console.WriteLine("User has reached the borrowing limit. Rolling back transaction.");
                     TempData["Error"] = "You can only borrow up to 3 books at a time (including books in your cart).";
                     await transaction.RollbackAsync();
                     return RedirectToAction("Index");
                 }
 
-                // Get book details and check availability atomically
-                string getBookQuery = "SELECT CopiesAvailable, IsAvailable FROM Books WHERE ID = @BookId FOR UPDATE";
+                string getBookQuery = "SELECT CopiesAvailable FROM Books WHERE ID = @BookId FOR UPDATE";
                 using var getBookCommand = new NpgsqlCommand(getBookQuery, connection, transaction);
                 getBookCommand.Parameters.AddWithValue("@BookId", bookId);
                 using var reader = await getBookCommand.ExecuteReaderAsync();
+                Console.WriteLine("Fetching book details...");
 
                 if (!await reader.ReadAsync())
                 {
+                    Console.WriteLine("Book not found. Rolling back transaction.");
                     TempData["Error"] = "Book not found.";
                     return RedirectToAction("Index");
                 }
 
                 int copiesAvailable = reader.GetInt32(0);
-                bool isAvailable = reader.GetBoolean(1);
                 await reader.CloseAsync();
+                Console.WriteLine($"Copies available: {copiesAvailable}");
 
-                // Handle cases where the book is unavailable
                 if (copiesAvailable <= 0)
                 {
+                    Console.WriteLine("Book is out of stock. Checking waiting list...");
                     string checkWaitingListUserQuery = "SELECT COUNT(*) FROM WaitingList WHERE BookId = @BookId AND Username = @Username";
                     using var checkWaitingListUserCommand = new NpgsqlCommand(checkWaitingListUserQuery, connection, transaction);
                     checkWaitingListUserCommand.Parameters.AddWithValue("@BookId", bookId);
                     checkWaitingListUserCommand.Parameters.AddWithValue("@Username", username);
                     long userInWaitingList = (long)await checkWaitingListUserCommand.ExecuteScalarAsync();
+                    Console.WriteLine($"User in waiting list: {userInWaitingList}");
 
                     if (userInWaitingList == 0)
                     {
+                        Console.WriteLine("Adding user to waiting list...");
                         string addToWaitingListQuery = @"INSERT INTO WaitingList (BookId, Username, Email, CreatedAt)
-                                                 VALUES (@BookId, @Username, @Email, @CreatedAt)";
+                                         VALUES (@BookId, @Username, @Email, @CreatedAt)";
                         using var addToWaitingListCommand = new NpgsqlCommand(addToWaitingListQuery, connection, transaction);
                         addToWaitingListCommand.Parameters.AddWithValue("@BookId", bookId);
                         addToWaitingListCommand.Parameters.AddWithValue("@Username", username);
@@ -340,22 +408,25 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                         await addToWaitingListCommand.ExecuteNonQueryAsync();
 
                         TempData["Message"] = "The book is out of stock. You have been added to the waiting list.";
+                        Console.WriteLine("User added to waiting list.");
                     }
                     else
                     {
+                        Console.WriteLine("User is already in the waiting list.");
                         TempData["Message"] = "You are already in the waiting list for this book.";
                     }
 
                     await transaction.CommitAsync();
+                    Console.WriteLine("Transaction committed.");
                     return RedirectToAction("Index");
                 }
 
-                // Handle prioritized waiting list if there are copies available
+                Console.WriteLine("Checking prioritized waiting list...");
                 string getWaitingListQuery = @"SELECT Username, Email 
-                                       FROM WaitingList 
-                                       WHERE BookId = @BookId 
-                                       ORDER BY CreatedAt ASC 
-                                       LIMIT @CopiesAvailable";
+                               FROM WaitingList 
+                               WHERE BookId = @BookId 
+                               ORDER BY CreatedAt ASC 
+                               LIMIT @CopiesAvailable";
                 using var getWaitingListCommand = new NpgsqlCommand(getWaitingListQuery, connection, transaction);
                 getWaitingListCommand.Parameters.AddWithValue("@BookId", bookId);
                 getWaitingListCommand.Parameters.AddWithValue("@CopiesAvailable", copiesAvailable);
@@ -367,12 +438,13 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                     prioritizedUsers.Add((waitingListReader.GetString(0), waitingListReader.GetString(1)));
                 }
                 await waitingListReader.CloseAsync();
+                Console.WriteLine($"Number of prioritized users: {prioritizedUsers.Count}");
 
-                // Notify prioritized users and remove them from the waiting list
                 foreach (var user in prioritizedUsers)
                 {
                     try
                     {
+                        Console.WriteLine($"Notifying user {user.Username}...");
                         await SendEmailForAvailableBook(user.Email, bookId);
 
                         string removeFromWaitingListQuery = "DELETE FROM WaitingList WHERE BookId = @BookId AND Username = @Username";
@@ -380,15 +452,17 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                         removeFromWaitingListCommand.Parameters.AddWithValue("@BookId", bookId);
                         removeFromWaitingListCommand.Parameters.AddWithValue("@Username", user.Username);
                         await removeFromWaitingListCommand.ExecuteNonQueryAsync();
+                        Console.WriteLine($"User {user.Username} removed from waiting list.");
 
                         string insertToCartQuery = @"INSERT INTO ShoppingCart (Username, BookId, Quantity, ActionType, CreatedAt)
-                                             VALUES (@Username, @BookId, 1, @ActionType, @CreatedAt)";
+                                     VALUES (@Username, @BookId, 1, @ActionType, @CreatedAt)";
                         using var addToCartCommand = new NpgsqlCommand(insertToCartQuery, connection, transaction);
                         addToCartCommand.Parameters.AddWithValue("@Username", user.Username);
                         addToCartCommand.Parameters.AddWithValue("@BookId", bookId);
                         addToCartCommand.Parameters.AddWithValue("@ActionType", "Borrow");
                         addToCartCommand.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
                         await addToCartCommand.ExecuteNonQueryAsync();
+                        Console.WriteLine($"Book added to cart for user {user.Username}.");
 
                         copiesAvailable--;
                         string updateBookQuery = "UPDATE Books SET CopiesAvailable = @CopiesAvailable WHERE ID = @BookId";
@@ -396,37 +470,42 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                         updateBookCommand.Parameters.AddWithValue("@CopiesAvailable", copiesAvailable);
                         updateBookCommand.Parameters.AddWithValue("@BookId", bookId);
                         await updateBookCommand.ExecuteNonQueryAsync();
+                        Console.WriteLine($"Copies available updated to {copiesAvailable}.");
                     }
                     catch (Exception ex)
                     {
+                        Console.WriteLine($"Error notifying user {user.Username}: {ex.Message}");
                         TempData["Error"] = $"Error notifying user '{user.Username}': {ex.Message}";
                     }
                 }
 
-                // Handle the current user if they are not in the prioritized list
                 if (!prioritizedUsers.Any(u => u.Username == username))
                 {
+                    Console.WriteLine("Current user is not in the prioritized list. Adding book to cart...");
                     string checkBookInCartQuery = "SELECT COUNT(*) FROM ShoppingCart WHERE BookId = @BookId AND Username = @Username";
                     using var checkBookInCartCommand = new NpgsqlCommand(checkBookInCartQuery, connection, transaction);
                     checkBookInCartCommand.Parameters.AddWithValue("@BookId", bookId);
                     checkBookInCartCommand.Parameters.AddWithValue("@Username", username);
                     long bookInCart = (long)await checkBookInCartCommand.ExecuteScalarAsync();
+                    Console.WriteLine($"Book in cart: {bookInCart}");
 
                     if (bookInCart > 0)
                     {
+                        Console.WriteLine("Book is already in the user's cart. Rolling back transaction.");
                         TempData["Error"] = "This book is already in your cart.";
                         await transaction.RollbackAsync();
                         return RedirectToAction("Index");
                     }
 
                     string insertUserCartQuery = @"INSERT INTO ShoppingCart (Username, BookId, Quantity, ActionType, CreatedAt)
-                                           VALUES (@Username, @BookId, 1, @ActionType, @CreatedAt)";
+                                   VALUES (@Username, @BookId, 1, @ActionType, @CreatedAt)";
                     using var insertUserCartCommand = new NpgsqlCommand(insertUserCartQuery, connection, transaction);
                     insertUserCartCommand.Parameters.AddWithValue("@Username", username);
                     insertUserCartCommand.Parameters.AddWithValue("@BookId", bookId);
                     insertUserCartCommand.Parameters.AddWithValue("@ActionType", "Borrow");
                     insertUserCartCommand.Parameters.AddWithValue("@CreatedAt", DateTime.Now);
                     await insertUserCartCommand.ExecuteNonQueryAsync();
+                    Console.WriteLine("Book added to user's cart.");
 
                     copiesAvailable--;
                     string updateUserBookQuery = "UPDATE Books SET CopiesAvailable = @CopiesAvailable WHERE ID = @BookId";
@@ -434,20 +513,23 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                     updateUserBookCommand.Parameters.AddWithValue("@CopiesAvailable", copiesAvailable);
                     updateUserBookCommand.Parameters.AddWithValue("@BookId", bookId);
                     await updateUserBookCommand.ExecuteNonQueryAsync();
+                    Console.WriteLine($"Copies available updated to {copiesAvailable}.");
                 }
 
                 await transaction.CommitAsync();
+                Console.WriteLine("Transaction committed.");
                 TempData["Message"] = "Book added to cart. Please proceed to checkout!";
                 return RedirectToAction("Index");
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Exception in AddToBorrowCart: {ex.Message}");
+                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
                 TempData["Error"] = "An error occurred while borrowing the book.";
                 return RedirectToAction("Index");
             }
         }
-
-		[HttpPost]
+        [HttpPost]
 		public IActionResult AddToBuyCart(int bookId)
 		{
 			if (!IsUserLoggedIn())
@@ -484,7 +566,6 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
 					}
 					else
 					{
-						// Insert into Cart (Before Payment)
 						string insertToCartQuery = @"
                     INSERT INTO ShoppingCart (Username, BookId, Quantity, ActionType, CreatedAt)
                     VALUES (@Username, @BookId, '1', @ActionType, @CreatedAt);";
@@ -507,7 +588,7 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
 			return RedirectToAction("Index");
 		}
 
-		public IActionResult BookProfile(int id)
+        public IActionResult BookProfile(int id)
         {
             if (!IsUserLoggedIn())
             {
@@ -623,7 +704,6 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                 using var connection = new NpgsqlConnection(_connectionString);
                 await connection.OpenAsync();
 
-                // Check if the user has bought or borrowed the book
                 bool hasPurchasedOrBorrowed = await CheckUserPurchaseOrBorrowedBookAsync(connection, username, bookId);
 
                 if (!hasPurchasedOrBorrowed)
@@ -701,7 +781,6 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
 
         private async Task<bool> CheckUserPurchaseOrBorrowedBookAsync(NpgsqlConnection connection, string username, int bookId)
         {
-            // Check in the PurchasedBooks table
             string checkPurchasedQuery = @"
         SELECT COUNT(*) 
         FROM PurchasedBooks 
@@ -712,7 +791,6 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
             purchasedCommand.Parameters.AddWithValue("@BookId", bookId);
             long purchasedCount = (long)await purchasedCommand.ExecuteScalarAsync();
 
-            // Check in the BorrowedBooks table
             string checkBorrowedQuery = @"
         SELECT COUNT(*) 
         FROM BorrowedBooks 
@@ -723,18 +801,17 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
             borrowedCommand.Parameters.AddWithValue("@BookId", bookId);
             long borrowedCount = (long)await borrowedCommand.ExecuteScalarAsync();
 
-            // Return true if the user has bought or borrowed the book
             return purchasedCount > 0 || borrowedCount > 0;
         }
 
         public async Task SendEmailForAvailableBook(string username, int bookId)
         {
             string fromMail = "malikabushah@gmail.com";
-            string fromPassword = "eaqa ixie haib nkjw"; // Use an app-specific password if 2FA is enabled
+            string fromPassword = "eaqa ixie haib nkjw"; 
 
             // Create the email body for the book availability notification
             string body = "<html><body><h2>Book Availability Notification</h2><p>Dear " + username + ",</p><p>The book you were waiting for is now available for borrowing. " +
-                          "You are among the first to be notified. Please log in to your account and borrow the book as soon as possible.</p>" +
+                          "You are among the first to be notified. Please log in to your account and borrow the book as soon as possible, you have only 2 days.</p>" +
                           "<p>Book ID: " + bookId + "</p>" +
                           "<p>If you have any questions, feel free to contact us.</p><p>Best regards,<br>Your Ebook Store Team</p></body></html>";
 
@@ -746,7 +823,7 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                 IsBodyHtml = true
             };
 
-            message.To.Add(new MailAddress(username));  // Send email to the user's email address
+            message.To.Add(new MailAddress(username)); 
 
             var smtpClient = new SmtpClient("smtp.gmail.com")
             {
@@ -773,7 +850,6 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                 using var connection = new NpgsqlConnection(_connectionString);
                 connection.Open();
 
-                // Get the first three users from the waiting list for the book
                 string waitingListQuery = @"
             SELECT Username
             FROM WaitingList
@@ -790,7 +866,6 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
                 {
                     string username = reader.GetString(0);
 
-                    // Get the user's email (assuming it's stored in a Users table)
                     string userEmailQuery = "SELECT Email FROM Users WHERE Username = @Username";
                     using var emailCommand = new NpgsqlCommand(userEmailQuery, connection);
                     emailCommand.Parameters.AddWithValue("@Username", username);
@@ -798,13 +873,12 @@ GROUP BY b.ID, b.Title, b.AuthorName, b.Publisher, b.CopiesAvailable, b.SoldCopi
 
                     if (!string.IsNullOrEmpty(userEmail))
                     {
-                        // Send email for book availability
+                        
                         await SendEmailForAvailableBook(userEmail, bookId);
                         notifiedUsers.Add(username);
                     }
                 }
 
-                // Optionally, update the waiting list to remove notified users
                 if (notifiedUsers.Any())
                 {
                     string removeNotifiedUsersQuery = @"

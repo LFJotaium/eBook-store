@@ -28,15 +28,8 @@ public class Book
     public int? AgeLimit { get; set; }
     public string Files {get;set;}
     public bool IsPopular { get; set; }
-    // Public property for the view
     public bool IsBuyOnly { get; set; }
-    // Internal property for database interaction
-    [NotMapped] // Tell EF Core to ignore this property
-    /*public int IsBuyOnlyDb
-    {
-        get => IsBuyOnly ? 1 : 0;
-        set => IsBuyOnly = value == 1;
-    }*/
+    [NotMapped] 
     public virtual ICollection<BookFeedback> Feedbacks { get; set; } = new List<BookFeedback>();
     public class BookFeedback
     {

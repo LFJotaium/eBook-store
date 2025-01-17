@@ -1,7 +1,5 @@
 <section class="book-profile py-5 bg-light">
-
-
-
+    <!-- Display Messages and Errors -->
     @if (ViewBag.Message != null)
     {
         <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -9,8 +7,6 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     }
-
-    <!-- Display ViewBag Errors -->
     @if (ViewBag.Error != null)
     {
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -18,8 +14,6 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     }
-
-    <!-- Display TempData Messages -->
     @if (TempData["Message"] != null)
     {
         <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -27,8 +21,6 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     }
-
-    <!-- Display TempData Errors -->
     @if (TempData["Error"] != null)
     {
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -36,6 +28,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     }
+
     <div class="container shadow-lg p-4 bg-white rounded">
         <div class="row g-5">
             <!-- Book Image -->
@@ -51,29 +44,75 @@
                     <p class="mb-2"><i class="fas fa-building me-2 text-secondary"></i><strong>Publisher:</strong> @Model.Publisher</p>
                     <p class="mb-2"><i class="fas fa-tags me-2 text-secondary"></i><strong>Genre:</strong> @Model.Genre</p>
                     <p class="mb-2"><i class="fas fa-calendar-alt me-2 text-secondary"></i><strong>Year of Publish:</strong> @Model.YearOfPublish</p>
-                    <p class="mb-2"><i class="fas fa-dollar-sign me-2 text-secondary"></i><strong>Price:</strong> <span class="text-success">@Model.Price.CurrentPriceBuy.ToString("C")</span></p>
+
+                    <!-- Display Available Copies only if the book is not "Buy Only" -->
+                    @if (!Model.IsBuyOnly)
+                    {
+                        <p class="mb-2"><i class="fas fa-copy me-2 text-secondary"></i><strong>Available Copies:</strong> @Model.CopiesAvailable</p>
+                    }
+
+                    <p class="mb-2"><i class="fas fa-shopping-cart me-2 text-secondary"></i><strong>Sold Copies:</strong> @Model.SoldCopies</p>
+                    <p class="mb-2"><i class="fas fa-exclamation-circle me-2 text-secondary"></i><strong>Age Limit:</strong> +@Model.AgeLimit</p>
+
+                    <!-- Display Buy Price -->
+                    <p class="mb-2 text-primary">
+                        <i class="fas fa-dollar-sign me-2"></i><strong>Buy Price:</strong>
+                        @if (Model.Price?.IsDiscounted == true)
+                        {
+                            <span style="text-decoration: line-through; color: red;">
+            @Model.Price.OriginalPriceBuy.ToString("C")
+        </span>
+                        }
+                        <span>@Model.Price?.CurrentPriceBuy.ToString("C")</span>
+                    </p>
+
+                    <!-- Display Borrow Price only if the book is not "Buy Only" -->
+                    @if (!Model.IsBuyOnly)
+                    {
+                        <p class="mb-2">
+                            <i class="fas fa-dollar-sign me-2"></i><strong>Borrow Price:</strong>
+                            @if (Model.Price?.IsDiscounted == true)
+                            {
+                                <span style="text-decoration: line-through; color: red;">
+                @Model.Price.OriginalPriceBorrow.ToString("C")
+            </span>
+                            }
+                            <span>@Model.Price?.CurrentPriceBorrow.ToString("C")</span>
+                        </p>
+                    }
+
+                    <!-- Display Discount End Date -->
+                    @if (Model.Price?.IsDiscounted == true)
+                    {
+                        <p class="mb-2 text-danger">
+                            <i class="fas fa-clock me-2"></i><strong>Discount Ends:</strong> @Model.Price?.DiscountEndDate?.ToString("yyyy-MM-dd")
+                        </p>
+                    }
                 </div>
 
-
-
+                <!-- Feedback Form -->
+                <form method="post" action="@Url.Action("SubmitBookFeedback", "Home")" class="mb-4">
+                    <input type="hidden" name="bookId" value="@Model.ID" />
+                    <div class="mb-3">
+                        <label for="rating" class="form-label"><strong>Rate:</strong></label>
+                        <input type="number" name="rating" class="form-control" min="1" max="5" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="comment" class="form-label"><strong>Comment:</strong></label>
+                        <textarea name="comment" class="form-control" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Submit Feedback</button>
+                </form>
             </div>
-            <form method="post" action="@Url.Action("SubmitBookFeedback", "Home")">
-                <input type="hidden" name="bookId" value="@Model.ID" />
-                <label for="rating">Rating:</label>
-                <input type="number" name="rating" min="1" max="5" required />
-                <label for="comment">Comment:</label>
-                <textarea name="comment"></textarea>
-                <button type="submit">Submit Feedback</button>
-            </form>
-
         </div>
     </div>
 </section>
+
+<!-- User Feedback Section -->
 <section class="book-feedback py-4">
     <div class="container">
-        <h3 class="text-primary mb-4">User Feedback</h3>
+        <h3 class="text-primary mb-4"><i class="fas fa-comments me-2"></i>User Feedback</h3>
         <div id="feedback-container" class="mb-3">
-            <!-- Feedback items will be dynamically loaded here -->
         </div>
         <button id="load-more-feedback" class="btn btn-outline-primary d-none">View More</button>
     </div>
@@ -84,7 +123,7 @@
         const feedbackContainer = document.getElementById('feedback-container');
         const loadMoreButton = document.getElementById('load-more-feedback');
 
-        let bookId = @Model.ID; // Assuming Razor syntax to inject the book ID.
+        let bookId = @Model.ID;
         let offset = 0;
         const limit = 5;
 
@@ -97,10 +136,10 @@
                             const feedbackElement = document.createElement('div');
                             feedbackElement.classList.add('mb-3', 'p-3', 'border', 'rounded', 'shadow-sm', 'bg-light');
                             feedbackElement.innerHTML = `
-                                <p><strong>${feedback.username}</strong> <span class="text-secondary">(${feedback.rating}★)</span></p>
-                                <p>${feedback.comment || 'No comment provided.'}</p>
-                                <small class="text-muted">Posted on ${new Date(feedback.createdAt).toLocaleDateString()}</small>
-                            `;
+                                        <p><strong>${feedback.username}</strong> <span class="text-secondary">(${feedback.rating}★)</span></p>
+                                        <p>${feedback.comment || 'No comment provided.'}</p>
+                                        <small class="text-muted">Posted on ${new Date(feedback.createdAt).toLocaleDateString()}</small>
+                                    `;
                             feedbackContainer.appendChild(feedbackElement);
                         });
                         offset += data.length;
@@ -114,7 +153,6 @@
 
         loadMoreButton.addEventListener('click', () => fetchFeedback(true));
 
-        // Fetch initial feedback
         fetchFeedback();
     });
 </script>

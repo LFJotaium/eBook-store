@@ -20,10 +20,8 @@ namespace ebookStore.Controllers
         }
         public IActionResult Logout()
         {
-            // Clear all session data
             HttpContext.Session.Clear();
 
-            // Redirect to the home page or login page after logging out
             return RedirectToAction("Index", "Home");
         }
         
